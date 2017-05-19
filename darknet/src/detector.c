@@ -468,6 +468,8 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
             strtok(input, "\n");
         }
         image im = load_image_color(input,0,0);
+        //image im2 = resize_and_merge(im, net.w, net.h);
+        //save_image(im2, "merged");
         image sized = resize_image(im, net.w, net.h);
         //save_image(sized,"sized");
         layer l = net.layers[net.n-1];
@@ -485,8 +487,8 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
         else if (nms) do_nms_sort(boxes, probs, l.w*l.h*l.n, l.classes, nms);
         
         printf("%.2f\n", thresh);
-        write_normalized_to_file("normalized.txt", l.w*l.h*l.n, thresh, boxes, probs, l.classes, 6, net.w);
-        write_regions_to_file("regions.txt", l.w*l.h*l.n, thresh, boxes, probs, l.classes);
+        //write_normalized_to_file("normalized.txt", l.w*l.h*l.n, thresh, boxes, probs, l.classes, 6, net.w);
+        //write_regions_to_file("regions.txt", l.w*l.h*l.n, thresh, boxes, probs, l.classes);
 
         draw_detections(im, l.w*l.h*l.n, thresh, boxes, probs, names, alphabet, l.classes);
         save_image(im, "predictions");

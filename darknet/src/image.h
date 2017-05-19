@@ -83,5 +83,10 @@ image get_image_layer(image m, int l);
 
 void free_image(image m);
 void test_resize(char *filename);
+
+// change for 360 panorama by paler
+image resize_and_merge(image im, int w, int h);
+void draw_detections_360(image im, int num, float thresh, box *boxes, float **probs, char **names, image **labels, int classes);
+
 #endif
 
