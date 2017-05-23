@@ -468,9 +468,9 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
             strtok(input, "\n");
         }
         image im = load_image_color(input,0,0);
-        //image im2 = resize_and_merge(im, net.w, net.h);
+        image sized = resize_and_merge(im, net.w, net.h);
         //save_image(im2, "merged");
-        image sized = resize_image(im, net.w, net.h);
+        //image sized = resize_image(im, net.w, net.h);
         //save_image(sized,"sized");
         layer l = net.layers[net.n-1];
 
@@ -486,11 +486,36 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
         if (l.softmax_tree && nms) do_nms_obj(boxes, probs, l.w*l.h*l.n, l.classes, nms);
         else if (nms) do_nms_sort(boxes, probs, l.w*l.h*l.n, l.classes, nms);
         
-        printf("%.2f\n", thresh);
+        //printf("%.2f\n", thresh);
+
+        // steps for 360 panorama
+        int num = l.w*l.h*l.n;
+        box4panorama * tb4ps = (box4panorama *)malloc(num * sizeof(box4panorama));
+        box4panorama * bb4ps = (box4panorama *)malloc(num * sizeof(box4panorama));
+        int tnum, bnum;
+        box_2_box4panorama(tb4ps,&tnum,bb4ps,&bnum,boxes,num,thresh,probs,l.classes,GAP,net.w);
+        //printf("convert finish. top:%d, bot:%d\n",tnum,bnum);
+
+        handle_clip(bb4ps,&bnum,tb4ps,&tnum,0.2);
+        //printf("clip finish\n");
+
+        int fnum = tnum+bnum;
+        box4panorama * final = (box4panorama*)malloc(fnum * sizeof(box4panorama));
+        finetune_both(tb4ps,&tnum,bb4ps,&bnum,0.4,final,&fnum);
+        //printf("finetune finish\n");
+
+        draw_detections_panorama(im,fnum,final,names,alphabet,l.classes);
+        //printf("draw finish\n");
+
+        free(final);
+        free(tb4ps);
+        free(bb4ps);
+        // end for 360 panorama
+
         //write_normalized_to_file("normalized.txt", l.w*l.h*l.n, thresh, boxes, probs, l.classes, 6, net.w);
         //write_regions_to_file("regions.txt", l.w*l.h*l.n, thresh, boxes, probs, l.classes);
 
-        draw_detections(im, l.w*l.h*l.n, thresh, boxes, probs, names, alphabet, l.classes);
+        //draw_detections(im, l.w*l.h*l.n, thresh, boxes, probs, names, alphabet, l.classes);
         save_image(im, "predictions");
         show_image(im, "predictions");
 

@@ -7,6 +7,7 @@
 #include <string.h>
 #include <math.h>
 #include "box.h"
+#include "region_writer.h"
 
 typedef struct {
     int h;
@@ -86,7 +87,11 @@ void test_resize(char *filename);
 
 // change for 360 panorama by paler
 image resize_and_merge(image im, int w, int h);
-void draw_detections_360(image im, int num, float thresh, box *boxes, float **probs, char **names, image **labels, int classes);
+void draw_detections_panorama(image im, int num, box4panorama * b4ps, char **names, image **alphabet, int classes);
+void draw_box_panorama(image img, box4panorama * b4p, int width, float r, float g, float b);
+void draw_labeled_box_panorama(image img, box4panorama * b4p, int width, float r, float g, float b, image label);
+void draw_label_panorama(image a, int r, int c, image label, const float *rgb);
+//void draw_detections_360(image im, int num, float thresh, box *boxes, float **probs, char **names, image **alphabet, int classes);
 
 #endif
 

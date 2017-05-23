@@ -4,6 +4,7 @@
 #include "cuda.h"
 #include <stdio.h>
 #include <math.h>
+#include "region_writer.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -1386,20 +1387,21 @@ image resize_and_merge(image im, int w, int h)
     return out;
 }
 
-void draw_detections_360(image im, int num, float thresh, box *boxes, float **probs, char **names, image **labels, int classes)
+void draw_detections_panorama(image im, int num, box4panorama * b4ps, char **names, image **alphabet, int classes)
 {
     int i;
 
-    for(i = 0; i < num; ++i){
-        int class = max_index(probs[i], classes);
-        float prob = probs[i][class];
+    for(i = 0; i < num; ++i)
+    {
+        //int class = max_index(probs[i], classes);
+        /*float prob = probs[i][class];
         if(prob > thresh){
 
             int width = im.h * .012;
 
             if(0){
                 width = pow(prob, 1./2.)*10+1;
-                //alphabet = 0;
+                alphabet = 0;
             }
 
             printf("%s: %.0f%%\n", names[class], prob*100);
@@ -1427,10 +1429,207 @@ void draw_detections_360(image im, int num, float thresh, box *boxes, float **pr
             if(bot > im.h-1) bot = im.h-1;
 
             draw_box_width(im, left, top, right, bot, width, red, green, blue);
-            //if (alphabet) {
-            //    image label = get_label(alphabet, names[class], (im.h*.03)/10);
-            //    draw_label(im, top + width, left, label, rgb);
-            //}
+            if (alphabet) {
+                image label = get_label(alphabet, names[class], (im.h*.03)/10);
+                draw_label(im, top + width, left, label, rgb);
+            }
+        }*/
+        int class = b4ps[i].c;
+        int width = im.h * .012;
+        int offset = class*123457 % classes;
+        float red = get_color(2,offset,classes);
+        float green = get_color(1,offset,classes);
+        float blue = get_color(0,offset,classes);
+
+        printf("%s: %.0f%%\n", names[class], b4ps[i].p*100);
+
+        if (alphabet) {
+            image label = get_label(alphabet, names[class], (im.h*.03)/10);
+            //draw_label_panorama(im, top + width, left, label, rgb);
+            draw_labeled_box_panorama(im, &b4ps[i], width, red, green, blue, label);
+        }
+        else
+            draw_box_panorama(im, &b4ps[i], width, red, green, blue);
+    }
+}
+
+void draw_box_panorama(image img, box4panorama * b4p, int width, float r, float g, float b)
+{
+    int left, right, top, bottom;
+    int w = img.w;
+    int h = img.h;
+    top = VALNONNEG(b4p->t * h);
+    bottom = VALNONNEG(b4p->b * h - 1);
+    if (b4p->l >= 0 && b4p->r <= 1 && b4p->l < b4p-> r)
+    {
+        left = VALNONNEG(b4p->l * w);
+        right = VALNONNEG(b4p->r * w - 1);
+        draw_box_width(img, left, top, right, bottom, width, r, g, b);
+    }
+    else
+    {
+        if (b4p->l < 0 && b4p->r > 0)
+        {
+            left = VALNONNEG((b4p->l+1) * w);
+            right = VALNONNEG(b4p->r * w - 1);
+        }
+        else if (b4p->l < 1 && b4p->r > 1)
+        {
+            left = VALNONNEG(b4p->l * w);
+            right = VALNONNEG((b4p->r-1) * w - 1);
+        }
+        else if (b4p->l > b4p->r)
+        {
+            left = VALNONNEG(b4p->l * w);
+            right = VALNONNEG(b4p->r * w - 1);
+        }
+        else return;
+
+        for (int i=left;i<w;i++)
+        {
+            for (int j=0;j<width;j++)
+            {
+                set_pixel(img, i, top + j, 0, r);
+                set_pixel(img, i, top + j, 1, g);
+                set_pixel(img, i, top + j, 2, b);
+                set_pixel(img, i, bottom - j, 0, r);
+                set_pixel(img, i, bottom - j, 1, g);
+                set_pixel(img, i, bottom - j, 2, b);
+                //img.setPixel(i,top+j,qRgb(R,G,B));
+                //img.setPixel(i,bottom-j,qRgb(R,G,B));
+            }
+        }
+        for (int i=0;i<=right;i++)
+        {
+            for (int j=0;j<width;j++)
+            {
+                set_pixel(img, i, top + j, 0, r);
+                set_pixel(img, i, top + j, 1, g);
+                set_pixel(img, i, top + j, 2, b);
+                set_pixel(img, i, bottom - j, 0, r);
+                set_pixel(img, i, bottom - j, 1, g);
+                set_pixel(img, i, bottom - j, 2, b);
+                //img.setPixel(i,top+j,qRgb(R,G,B));
+                //img.setPixel(i,bottom-j,qRgb(R,G,B));
+            }
+        }
+        for (int i=top;i<=bottom;i++)
+        {
+            for (int j=0;j<width;j++)
+            {
+                int le = (left + j) % w;
+                int ri = (right - j + w) % w;
+                set_pixel(img, le, i, 0, r);
+                set_pixel(img, le, i, 1, g);
+                set_pixel(img, le, i, 2, b);
+                set_pixel(img, ri, i, 0, r);
+                set_pixel(img, ri, i, 1, g);
+                set_pixel(img, ri, i, 2, b);
+                //img.setPixel((left+j)%w, i,qRgb(R,G,B));
+                //img.setPixel((right-j+w)%w,i,qRgb(R,G,B));
+            }
+        }
+    }
+}
+
+void draw_labeled_box_panorama(image img, box4panorama * b4p, int width, float r, float g, float b, image label)
+{
+    int left, right, top, bottom;
+    int w = img.w;
+    int h = img.h;
+    top = VALNONNEG(b4p->t * h);
+    bottom = VALNONNEG(b4p->b * h - 1);
+    if (b4p->l >= 0 && b4p->r <= 1 && b4p->l < b4p-> r)
+    {
+        left = VALNONNEG(b4p->l * w);
+        right = VALNONNEG(b4p->r * w - 1);
+        draw_box_width(img, left, top, right, bottom, width, r, g, b);
+    }
+    else
+    {
+        if (b4p->l < 0 && b4p->r > 0)
+        {
+            left = VALNONNEG((b4p->l+1) * w);
+            right = VALNONNEG(b4p->r * w - 1);
+        }
+        else if (b4p->l < 1 && b4p->r > 1)
+        {
+            left = VALNONNEG(b4p->l * w);
+            right = VALNONNEG((b4p->r-1) * w - 1);
+        }
+        else if (b4p->l > b4p->r)
+        {
+            left = VALNONNEG(b4p->l * w);
+            right = VALNONNEG(b4p->r * w - 1);
+        }
+        else return;
+
+        for (int i=left;i<w;i++)
+        {
+            for (int j=0;j<width;j++)
+            {
+                set_pixel(img, i, top + j, 0, r);
+                set_pixel(img, i, top + j, 1, g);
+                set_pixel(img, i, top + j, 2, b);
+                set_pixel(img, i, bottom - j, 0, r);
+                set_pixel(img, i, bottom - j, 1, g);
+                set_pixel(img, i, bottom - j, 2, b);
+                //img.setPixel(i,top+j,qRgb(R,G,B));
+                //img.setPixel(i,bottom-j,qRgb(R,G,B));
+            }
+        }
+        for (int i=0;i<=right;i++)
+        {
+            for (int j=0;j<width;j++)
+            {
+                set_pixel(img, i, top + j, 0, r);
+                set_pixel(img, i, top + j, 1, g);
+                set_pixel(img, i, top + j, 2, b);
+                set_pixel(img, i, bottom - j, 0, r);
+                set_pixel(img, i, bottom - j, 1, g);
+                set_pixel(img, i, bottom - j, 2, b);
+                //img.setPixel(i,top+j,qRgb(R,G,B));
+                //img.setPixel(i,bottom-j,qRgb(R,G,B));
+            }
+        }
+        for (int i=top;i<=bottom;i++)
+        {
+            for (int j=0;j<width;j++)
+            {
+                int le = (left + j) % w;
+                int ri = (right - j + w) % w;
+                set_pixel(img, le, i, 0, r);
+                set_pixel(img, le, i, 1, g);
+                set_pixel(img, le, i, 2, b);
+                set_pixel(img, ri, i, 0, r);
+                set_pixel(img, ri, i, 1, g);
+                set_pixel(img, ri, i, 2, b);
+                //img.setPixel((left+j)%w, i,qRgb(R,G,B));
+                //img.setPixel((right-j+w)%w,i,qRgb(R,G,B));
+            }
+        }
+    }
+
+    float rgb[3];
+    rgb[0] = r;
+    rgb[1] = g;
+    rgb[2] = b;
+    draw_label_panorama(img, top + width, left, label, rgb);
+}
+
+void draw_label_panorama(image a, int r, int c, image label, const float *rgb)
+{
+    int w = label.w;
+    int h = label.h;
+    if (r - h >= 0) r = r - h;
+
+    int i, j, k;
+    for(j = 0; j < h && j + r < a.h; ++j){
+        for(i = 0; i < w /*&& i + c < a.w*/; ++i){
+            for(k = 0; k < label.c; ++k){
+                float val = get_pixel(label, i, j, k);
+                set_pixel(a, (i+c)%a.w, j+r, k, rgb[k] * val);
+            }
         }
     }
 }
