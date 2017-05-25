@@ -530,6 +530,7 @@ void finetune_both(box4panorama * r1, int *size1, box4panorama * r2, int *size2,
             float t = r1[i].t * p;
             float b = r1[i].b * p;            
             float cnt = p;
+            p *= p;           
 
             //box4panorama b4p;
 
@@ -576,6 +577,65 @@ void finetune_both(box4panorama * r1, int *size1, box4panorama * r2, int *size2,
     }
     free (related_list);
     free (tags);
+}
+
+void finetune_self(box4panorama * rg, int * size, float threshold)
+{
+    int s = *size;
+    float cl[3] = {0.5, 1.0, 0.0};
+    int st = 0;
+    int en = 0;
+    for (int i=0;i<s;i++)
+    {
+        if (rg[i].u == 1)
+        {
+            st = 0;
+            en = 1;
+        }
+        else
+        {
+            st = 1;
+            en = 3;
+        }
+        for (int m = st;m<en;m++)
+        {
+            if (rg[i].l < cl[m] && rg[i].r > cl[m])
+            {
+                float p = rg[i].p;
+                float l = rg[i].l * p;
+                float r = rg[i].r * p;
+                float t = rg[i].t * p;
+                float b = rg[i].b * p;
+                float cnt = p;
+                p *= p;           
+                for (int j=s-1;j>i;j--)
+                {
+                    if (rg[j].c == rg[i].c && rg[j].l < cl[m] && rg[j].r > cl[m])
+                    {
+                        float iou = b4p_iou(&rg[i], &rg[j]);
+                        if (iou > threshold)
+                        {
+                            l += rg[j].l * rg[j].p;
+                            r += rg[j].r * rg[j].p;
+                            t += rg[j].t * rg[j].p;
+                            b += rg[j].b * rg[j].p;
+                            p += rg[j].p * rg[j].p;
+                            cnt += rg[j].p;
+                            swap_b4p(&rg[j], &rg[s-1]);
+                            s --;
+                        }
+                    }
+                }
+                rg[i].l = l / cnt;
+                rg[i].r = r / cnt;
+                rg[i].t = t / cnt;
+                rg[i].b = b / cnt;
+                rg[i].p = p / cnt;
+            }
+        }            
+    }
+    *size = s;
+    rg = (box4panorama *)realloc(rg, s * sizeof(box4panorama));
 }
 
 b4p_copy(box4panorama * dst, const box4panorama * src)
