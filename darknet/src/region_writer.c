@@ -2,7 +2,7 @@
 #include <string.h>
 #include <stdio.h>
 
-// create for 360 panorama by paler
+// used for 360 panorama
 
 void write_regions_to_file(const char * filename, int num, float thresh, box *boxes, float **probs, int classes)
 {
@@ -501,7 +501,6 @@ void finetune_both(box4panorama * r1, int *size1, box4panorama * r2, int *size2,
     {
         if (!used[j])
         {
-
             b4p_copy(&merged[k], &r2[j]);
             k++;
         }

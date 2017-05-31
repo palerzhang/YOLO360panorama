@@ -28,7 +28,8 @@ typedef struct{
 } data;
 
 typedef enum {
-    CLASSIFICATION_DATA, DETECTION_DATA, CAPTCHA_DATA, REGION_DATA, IMAGE_DATA, COMPARE_DATA, WRITING_DATA, SWAG_DATA, TAG_DATA, OLD_CLASSIFICATION_DATA, STUDY_DATA, DET_DATA, SUPER_DATA
+    CLASSIFICATION_DATA, DETECTION_DATA ,CAPTCHA_DATA, REGION_DATA, IMAGE_DATA, COMPARE_DATA, WRITING_DATA, SWAG_DATA, TAG_DATA, OLD_CLASSIFICATION_DATA, STUDY_DATA, DET_DATA, SUPER_DATA,
+    PANORAMA_DATA // 360 panorama image data
 } data_type;
 
 typedef struct load_args{
@@ -107,4 +108,9 @@ data concat_data(data d1, data d2);
 data concat_datas(data *d, int n);
 void fill_truth(char *path, char **labels, int k, float *truth);
 
+// used for 360 panorama training 
+data load_data_panorama(int n, char **paths, int m, int w, int h, int boxes, int classes, float jitter, float hue, float saturation, float exposure);
+void fill_crop_mode_truth(char *path, int num_boxes, float *truth, int classes, int flip, float cl, float ct, float cw, float ch);
+void fill_merge_mode_truth(char *path, int num_boxes, float *truth, int classes, float cutline, float dh1, float dh2);
+void correct_crop_mode_boxes(box_label *boxes, int * count, float cl, float ct, float cw, float ch, int flip);
 #endif

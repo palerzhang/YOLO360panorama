@@ -1355,7 +1355,7 @@ void free_image(image m)
     }
 }
 
-// change for 360 panorama by paler
+// used for 360 panorama
 image resize_and_merge(image im, int w, int h)
 {
     image out = make_image(w, h, im.c);  
@@ -1632,4 +1632,60 @@ void draw_label_panorama(image a, int r, int c, image label, const float *rgb)
             }
         }
     }
+}
+
+image crop_panorama_image(image im, int x, int y, int w, int h)
+{
+    image cropped = make_image(w, h, im.c);
+    int i, j, k;
+    for(k = 0; k < im.c; ++k){
+        for(j = 0; j < h; ++j){
+            for(i = 0; i < w; ++i){
+                int r = j + y;
+                int c = (i + x) % im.w;
+                float val = 0;
+                //r = constrain_int(r, 0, im.h-1);
+                //c = constrain_int(c, 0, im.w-1);
+                if (r >= 0 && r < im.h && c >= 0 && c < im.w) {
+                    val = get_pixel(im, c, r, k);
+                }
+                else
+                    val = 0;
+                set_pixel(cropped, i, j, k, val);
+            }
+        }
+    }
+    return cropped;
+}
+
+image merge_at_cutline(image im, float cutline, int gap)
+{
+    int w = im.w;
+    int h = im.h * 2 + gap;
+    image out = make_image(w, h, im.c);  
+    int nh = im.h
+    int w1 = ((int)(cutline * w)) % w;
+    int w2 = w1 + w / 2;
+
+    int r, c, k;
+    for(k = 0; k < im.c; ++k){
+        for(r = 0; r < nh; ++r){
+            for(c = 0; c < w; ++c){
+                int i1 = (c+w1) % w;
+                set_pixel(out, c, r, k, get_pixel(im, i1, r, k));
+                int i2 = (c+w2) % w;
+                set_pixel(out, c, r + nh + gap, k, get_pixel(im, i2, r, k));
+            }
+        }
+    }
+
+    for(k = 0; k < im.c; ++k){
+        for(r = 0; r < gap; ++r){
+            for(c = 0; c < w; ++c){
+                set_pixel(out, c, r+h, k, 0);
+            }
+        }
+    }
+
+    return out;
 }

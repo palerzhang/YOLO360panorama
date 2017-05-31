@@ -85,12 +85,14 @@ image get_image_layer(image m, int l);
 void free_image(image m);
 void test_resize(char *filename);
 
-// change for 360 panorama by paler
+// used for 360 panorama
 image resize_and_merge(image im, int w, int h);
 void draw_detections_panorama(image im, int num, box4panorama * b4ps, char **names, image **alphabet, int classes);
 void draw_box_panorama(image img, box4panorama * b4p, int width, float r, float g, float b);
 void draw_labeled_box_panorama(image img, box4panorama * b4p, int width, float r, float g, float b, image label);
 void draw_label_panorama(image a, int r, int c, image label, const float *rgb);
+image crop_panorama_image(image im, int x, int y, int w, int h);
+image merge_at_cutline(image im, float cutline, int gap);
 //void draw_detections_360(image im, int num, float thresh, box *boxes, float **probs, char **names, image **alphabet, int classes);
 
 #endif

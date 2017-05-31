@@ -1,7 +1,7 @@
 #ifndef REGION_WRITER_H
 #define REGION_WRITER_H
 
-// create for 360 panorama by paler
+// used for 360 panorama
 
 #include <stdio.h>
 #include <stdlib.h>

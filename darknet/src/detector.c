@@ -15,11 +15,16 @@ static int coco_ids[] = {1,2,3,4,5,6,7,8,9,10,11,13,14,15,16,17,18,19,20,21,22,2
 
 void train_detector(char *datacfg, char *cfgfile, char *weightfile, int *gpus, int ngpus, int clear)
 {
+    // datacfg is a file that contains classes, train path, names path
+    // and so on
     list *options = read_data_cfg(datacfg);
+    // get the train file path with key 'train'
+    // train file is a text file that contains a list of all training images
     char *train_images = option_find_str(options, "train", "data/train.list");
     char *backup_directory = option_find_str(options, "backup", "/backup/");
 
     srand(time(0));
+    // cfgfile is a file that contains the config information of network
     char *base = basecfg(cfgfile);
     printf("%s\n", base);
     float avg_loss = -1;
@@ -52,21 +57,24 @@ void train_detector(char *datacfg, char *cfgfile, char *weightfile, int *gpus, i
     int classes = l.classes;
     float jitter = l.jitter;
 
+    // parse the train file and get the list of all training images
     list *plist = get_paths(train_images);
     //int N = plist->size;
+    // convert the list into array
     char **paths = (char **)list_to_array(plist);
 
     load_args args = {0};
-    args.w = net.w;
-    args.h = net.h;
-    args.paths = paths;
-    args.n = imgs;
-    args.m = plist->size;
-    args.classes = classes;
+    args.w = net.w; // input width
+    args.h = net.h; // input height
+    args.paths = paths; // training image paths
+    args.n = imgs; // 
+    args.m = plist->size; // training image size
+    args.classes = classes; // number of classes
     args.jitter = jitter;
-    args.num_boxes = l.max_boxes;
+    args.num_boxes = l.max_boxes; 
     args.d = &buffer;
-    args.type = DETECTION_DATA;
+    //args.type = DETECTION_DATA;
+    args.type = PANORAMA_DATA; // use 360 panorama images
     args.threads = 8;
 
     args.angle = net.angle;
