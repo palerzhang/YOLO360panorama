@@ -1663,7 +1663,7 @@ image merge_at_cutline(image im, float cutline, int gap)
     int w = im.w;
     int h = im.h * 2 + gap;
     image out = make_image(w, h, im.c);  
-    int nh = im.h
+    int nh = im.h;
     int w1 = ((int)(cutline * w)) % w;
     int w2 = w1 + w / 2;
 

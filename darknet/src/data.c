@@ -1241,8 +1241,8 @@ data load_data_panorama(int n, char **paths, int m, int w, int h, int boxes, int
             // ....
             float cl = ((float)pleft) / ow;
             float ct = ((float)ptop) / oh;
-            float cw = ((float)swidth) / ow;
-            float ch = ((float)sheight) / oh;
+            float cw = ow / ((float)swidth);
+            float ch = oh / ((float)sheight);
             fill_crop_mode_truth(random_paths[i], boxes, d.y.vals[i], classes, flip, cl, ct, cw, ch);
 
             free_image(cropped);
@@ -1250,12 +1250,15 @@ data load_data_panorama(int n, char **paths, int m, int w, int h, int boxes, int
         else
         {
             // merge mode
+            //int oh = orig.h;
+            //int ow = orig.w;
             float dgap = 0.014423;
             int nh = h - h * dgap;
             if (nh % 2 == 1) nh -= 1;
             int gap = h - nh;
+            nh /= 2;
             // resize first to reduce pixels
-            image sized = resize_image(orig, w, nh / 2);
+            image sized = resize_image(orig, w, nh);
             // random change color
             random_distort_image(sized, hue, saturation, exposure);
             float cutline = ((float)(rand() % 9523)) / 9523.0;
@@ -1265,7 +1268,7 @@ data load_data_panorama(int n, char **paths, int m, int w, int h, int boxes, int
             // fill truth_detection
             // to be modified
             // ....
-            float dh1 = ((float) (nh * ow))  / (oh * w);
+            float dh1 = ((float) nh)  / h;
             float dh2 = ((float) (nh + gap)) / h;
             fill_merge_mode_truth(random_paths[i], boxes, d.y.vals[i], classes, cutline, dh1, dh2);
 
@@ -1319,24 +1322,85 @@ void fill_crop_mode_truth(char *path, int num_boxes, float *truth, int classes, 
 
 void fill_merge_mode_truth(char *path, int num_boxes, float *truth, int classes, float cutline, float dh1, float dh2)
 {
+    char labelpath[4096];
+    find_replace(path, "images", "labels", labelpath);
+    find_replace(labelpath, "JPEGImages", "labels", labelpath);
 
+    find_replace(labelpath, "raw", "labels", labelpath);
+    find_replace(labelpath, ".jpg", ".txt", labelpath);
+    find_replace(labelpath, ".png", ".txt", labelpath);
+    find_replace(labelpath, ".JPG", ".txt", labelpath);
+    find_replace(labelpath, ".JPEG", ".txt", labelpath);
+    int count = 0;
+    box_label *boxes = read_boxes(labelpath, &count);
+    randomize_boxes(boxes, count);
+    correct_merge_mode_boxes(boxes, &count, cutline, dh1, dh2);    
+
+    if(count > num_boxes) count = num_boxes;
+    float x,y,w,h;
+    int id;
+
+    for (int i = 0; i < count; ++i) {
+        x =  boxes[i].x;
+        y =  boxes[i].y;
+        w =  boxes[i].w;
+        h =  boxes[i].h;
+        id = boxes[i].id;
+
+        if ((w < .005 || h < .005)) continue;
+
+        truth[i*5+0] = x;
+        truth[i*5+1] = y;
+        truth[i*5+2] = w;
+        truth[i*5+3] = h;
+        truth[i*5+4] = id;
+    }
+    free(boxes);
 }
 
 void correct_crop_mode_boxes(box_label *boxes, int *count, float cl, float ct, float cw, float ch, int flip)
 {
     int n = *count;
+    // failure
+    //if (cw == 0 || ch == 0) return;
+    //int m = n;
     for(int i = 0; i < n; ++i){
-        if(boxes[i].x == 0 && boxes[i].y == 0) {
+        /*if(boxes[i].x == 0 && boxes[i].y == 0) {
             boxes[i].x = 999999;
             boxes[i].y = 999999;
             boxes[i].w = 999999;
             boxes[i].h = 999999;
             continue;
+        }*/
+        if (boxes[i].left < 0 && boxes[i].right > 0)
+        {
+            boxes[i].left   = boxes[i].left + 1;
+            boxes[i].right  = 1;
+
+            boxes = (box_label*)realloc(boxes, (n+1)*sizeof(box_label));
+            boxes[n].left   = 0;
+            boxes[n].right  = boxes[i].right;
+            boxes[n].top    = boxes[i].top;
+            boxes[n].bottom = boxes[i].bottom;
+            n+=1;
         }
-        boxes[i].left   = boxes[i].left  * sx - dx;
-        boxes[i].right  = boxes[i].right * sx - dx;
-        boxes[i].top    = boxes[i].top   * sy - dy;
-        boxes[i].bottom = boxes[i].bottom* sy - dy;
+        else if (boxes[i].left < 1 && boxes[i].right > 1)
+        {
+            boxes[i].left   = boxes[i].left;
+            boxes[i].right  = 1;
+
+            boxes = (box_label*)realloc(boxes, (n+1)*sizeof(box_label));
+            boxes[n].left   = 0;
+            boxes[n].right  = boxes[i].right - 1;
+            boxes[n].top    = boxes[i].top;
+            boxes[n].bottom = boxes[i].bottom;
+            n+=1;
+        }
+
+        boxes[i].left   = (boxes[i].left  - cl) * cw;
+        boxes[i].right  = (boxes[i].right - cl) * cw;
+        boxes[i].top    = (boxes[i].top   - ct) * ch;
+        boxes[i].bottom = (boxes[i].bottom- ct) * ch;
 
         if(flip){
             float swap = boxes[i].left;
@@ -1356,5 +1420,89 @@ void correct_crop_mode_boxes(box_label *boxes, int *count, float cl, float ct, f
 
         boxes[i].w = constrain(0, 1, boxes[i].w);
         boxes[i].h = constrain(0, 1, boxes[i].h);
+    }
+}
+
+void correct_merge_mode_boxes(box_label *boxes, int * count, float cutline, float dh1, float dh2)
+{
+    int n = *count;
+    // failure
+    //if (cw == 0 || ch == 0) return;
+    int m = n;
+    box_label * cpy = (box_label*)malloc(n * sizeof(box_label));
+    memmove(cpy, boxes, n * sizeof(box_label));
+
+    float cut[2] = {cutline, cutline + 0.5};
+    cut[1] = cut[1] > 1.0 ? cut[1] - 1.0 : cut[1];
+    int size[2] = {n, n};
+
+    for (int k = 0; k < 2; k++)
+    {
+        for (int i = 0; i < m; ++i)
+        {
+            if (cpy[i].left < cut[k] && cpy[i].right > cut[k])
+            {
+                boxes[i].left   = cpy[i].left - cut[k] + 1;
+                boxes[i].right  = 1;
+
+                boxes = (box_label*)realloc(boxes, (n+1)*sizeof(box_label));
+                boxes[n].left   = 0;
+                boxes[n].right  = cpy[i].right - cut[k];
+                boxes[n].top    = cpy[i].top;
+                boxes[n].bottom = cpy[i].bottom;
+                n+=1;
+            }
+            else if (cpy[i].right <= cut[k])
+            {
+                boxes[i].left   = cpy[i].left - cut[k] + 1;
+                boxes[i].right  = cpy[i].right - cut[k] + 1;
+            }
+            else if (cpy[i].left >= cut[k])
+            {
+                boxes[i].left   = cpy[i].left - cut[k];
+                boxes[i].right  = cpy[i].right - cut[k];
+            }
+            else
+                continue;
+            boxes[i].top    = cpy[i].top;
+            boxes[i].bottom = cpy[i].bottom;
+        }
+        size[k] = n;
+    }
+    for (int i=0; i<size[0]; i++)
+    {
+        boxes[i].top    = dh1 * boxes[i].top;
+        boxes[i].bottom = dh1 * boxes[i].bottom;
+
+        boxes[i].left =  constrain(0, 1, boxes[i].left);
+        boxes[i].right = constrain(0, 1, boxes[i].right);
+        boxes[i].top =   constrain(0, dh1, boxes[i].top);
+        boxes[i].bottom =   constrain(0, dh1, boxes[i].bottom);
+
+        boxes[i].x = (boxes[i].left+boxes[i].right)/2;
+        boxes[i].y = (boxes[i].top+boxes[i].bottom)/2;
+        boxes[i].w = (boxes[i].right - boxes[i].left);
+        boxes[i].h = (boxes[i].bottom - boxes[i].top);
+
+        boxes[i].w = constrain(0, 1, boxes[i].w);
+        boxes[i].h = constrain(0, dh1, boxes[i].h);
+    }
+    for (int i=size[0]; i<size[1]; i++)
+    {
+        boxes[i].top    = dh2 + dh1 * boxes[i].top;
+        boxes[i].bottom = dh2 + dh1 * boxes[i].bottom;
+
+        boxes[i].left =  constrain(0, 1, boxes[i].left);
+        boxes[i].right = constrain(0, 1, boxes[i].right);
+        boxes[i].top =   constrain(dh2, 1, boxes[i].top);
+        boxes[i].bottom =   constrain(dh2, 1, boxes[i].bottom);
+
+        boxes[i].x = (boxes[i].left+boxes[i].right)/2;
+        boxes[i].y = (boxes[i].top+boxes[i].bottom)/2;
+        boxes[i].w = (boxes[i].right - boxes[i].left);
+        boxes[i].h = (boxes[i].bottom - boxes[i].top);
+
+        boxes[i].w = constrain(0, 1, boxes[i].w);
+        boxes[i].h = constrain(dh2, 1, boxes[i].h);
     }
 }
