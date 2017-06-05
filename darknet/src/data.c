@@ -1421,6 +1421,7 @@ void correct_crop_mode_boxes(box_label *boxes, int *count, float cl, float ct, f
         boxes[i].w = constrain(0, 1, boxes[i].w);
         boxes[i].h = constrain(0, 1, boxes[i].h);
     }
+    *count = n;
 }
 
 void correct_merge_mode_boxes(box_label *boxes, int * count, float cutline, float dh1, float dh2)
@@ -1505,4 +1506,5 @@ void correct_merge_mode_boxes(box_label *boxes, int * count, float cutline, floa
         boxes[i].w = constrain(0, 1, boxes[i].w);
         boxes[i].h = constrain(dh2, 1, boxes[i].h);
     }
+    *count = size[1];
 }

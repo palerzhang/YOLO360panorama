@@ -134,7 +134,7 @@ float b4p_iou(box4panorama * b1, box4panorama * b2)
     return _or == 0 ? 0 : _and / _or;
 }
 
-void box_2_box4panorama(box4panorama * tb4ps, int * tnum, box4panorama * bb4ps, int *bnum, box *boxes, int num, float thresh, float **probs, int classes, int gap, int size)
+void box_2_box4panorama(box4panorama ** tb4ps, int * tnum, box4panorama ** bb4ps, int *bnum, box *boxes, int num, float thresh, float **probs, int classes, int gap, int size)
 {
     // tb4ps and bb4ps does not malloced outside function
     int tidx = 0;
@@ -162,7 +162,7 @@ void box_2_box4panorama(box4panorama * tb4ps, int * tnum, box4panorama * bb4ps, 
                 b4p.u = 0;
                 cal_lrtb(&b4p, x, y, w, h);
                 //bb4ps[bidx] = b4p;
-                b4p_copy(&bb4ps[bidx], &b4p);
+                b4p_copy(&(*bb4ps)[bidx], &b4p);
                 bidx++;
             }
             else
@@ -174,18 +174,18 @@ void box_2_box4panorama(box4panorama * tb4ps, int * tnum, box4panorama * bb4ps, 
                 b4p.u = 1;
                 cal_lrtb(&b4p, x, y, w, h);
                 //tb4ps[tidx] = b4p;
-                b4p_copy(&tb4ps[tidx], &b4p);
+                b4p_copy(&(*tb4ps)[tidx], &b4p);
                 tidx++;
             }
         }
     }
-    tb4ps = (box4panorama *)realloc(tb4ps, tidx * sizeof(box4panorama));
-    bb4ps = (box4panorama *)realloc(bb4ps, bidx * sizeof(box4panorama));
+    *tb4ps = (box4panorama *)realloc(*tb4ps, tidx * sizeof(box4panorama));
+    *bb4ps = (box4panorama *)realloc(*bb4ps, bidx * sizeof(box4panorama));
     *tnum = tidx;
     *bnum = bidx;
 }
 
-void handle_clip(box4panorama * r1, int *size1, box4panorama * r2, int *size2, float threshold)
+void handle_clip(box4panorama ** r1, int *size1, box4panorama ** r2, int *size2, float threshold)
 {
     int s1 = *size1;
     int s2 = *size2;
@@ -193,28 +193,28 @@ void handle_clip(box4panorama * r1, int *size1, box4panorama * r2, int *size2, f
     for (int i=0;i<s1;i++)
     {
         // find region that was cut
-        if (r1[i].l < 0 && r1[i].r > 0)
+        if ((*r1)[i].l < 0 && (*r1)[i].r > 0)
         {
             box4panorama left, right;
-            left.l = r1[i].l + 1;
+            left.l = (*r1)[i].l + 1;
             left.r = 1;
-            left.t = r1[i].t;
-            left.b = r1[i].b;
+            left.t = (*r1)[i].t;
+            left.b = (*r1)[i].b;
 
             right.l = 0;
-            right.r = r1[i].r;
-            right.t = r1[i].t;
-            right.b = r1[i].b;
+            right.r = (*r1)[i].r;
+            right.t = (*r1)[i].t;
+            right.b = (*r1)[i].b;
 
-            float ll = left.l * r1[i].p;
-            float lt = left.t * r1[i].p;
-            float lb = left.b * r1[i].p;
-            float lcnt = 0;//r1[i].p;
+            float ll = left.l * (*r1)[i].p;
+            float lt = left.t * (*r1)[i].p;
+            float lb = left.b * (*r1)[i].p;
+            float lcnt = 0;//(*r1)[i].p;
 
-            float rr = right.r * r1[i].p;
-            float rt = right.t * r1[i].p;
-            float rb = right.b * r1[i].p;
-            float rcnt = 0;//r1[i].p;
+            float rr = right.r * (*r1)[i].p;
+            float rt = right.t * (*r1)[i].p;
+            float rb = right.b * (*r1)[i].p;
+            float rcnt = 0;//(*r1)[i].p;
 
             //int j1 = -1;
             //int j2 = -1;
@@ -223,32 +223,32 @@ void handle_clip(box4panorama * r1, int *size1, box4panorama * r2, int *size2, f
 
             for (int j=s2-1;j>=0;j--)
             {
-                if (r1[i].c == r2[j].c)
+                if ((*r1)[i].c == (*r2)[j].c)
                 {
-                    float iou1 = b4p_iou(&left, &r2[j]);
+                    float iou1 = b4p_iou(&left, &(*r2)[j]);
 
-                    float iou2 = b4p_iou(&right, &r2[j]);
+                    float iou2 = b4p_iou(&right, &(*r2)[j]);
 
                     if (iou1 > threshold)// && iou1 > maxiou1)
                     {
                         //maxiou1 = iou1;
                         //j1 = j;
-                        ll += r2[j].l * r2[j].p;
-                        lt += r2[j].t * r2[j].p;
-                        lb += r2[j].b * r2[j].p;
-                        lcnt += r2[j].p;
-                        swap_b4p(&r2[j], &r2[s2-1]);
+                        ll += (*r2)[j].l * (*r2)[j].p;
+                        lt += (*r2)[j].t * (*r2)[j].p;
+                        lb += (*r2)[j].b * (*r2)[j].p;
+                        lcnt += (*r2)[j].p;
+                        swap_b4p(&(*r2)[j], &(*r2)[s2-1]);
                         s2 --;
                     }
                     else if (iou2 > threshold)// && iou2 > maxiou2)
                     {
                         //maxiou2 = iou2;
                         //j2 = j;
-                        rr += r2[j].r * r2[j].p;
-                        rt += r2[j].t * r2[j].p;
-                        rb += r2[j].b * r2[j].p;
-                        rcnt += r2[j].p;
-                        swap_b4p(&r2[j], &r2[s2-1]);
+                        rr += (*r2)[j].r * (*r2)[j].p;
+                        rt += (*r2)[j].t * (*r2)[j].p;
+                        rb += (*r2)[j].b * (*r2)[j].p;
+                        rcnt += (*r2)[j].p;
+                        swap_b4p(&(*r2)[j], &(*r2)[s2-1]);
                         s2 --;
                     }
                 }
@@ -257,47 +257,47 @@ void handle_clip(box4panorama * r1, int *size1, box4panorama * r2, int *size2, f
 
             if (lcnt > 0)
             {
-                lcnt += r1[i].p;
-                //float s = r1[i].p + r2[j1].p;
-                r1[i].l = ll / lcnt;//(left.l*r1[i].p + r2[j1].l*r2[j1].p) / s;
-                r1[i].t = lt / lcnt;//(left.t*r1[i].p + r2[j1].t*r2[j1].p) / s;
-                r1[i].b = lb / lcnt;//(left.b*r1[i].p + r2[j1].b*r2[j1].p) / s;
-                //swap_b4p(&r2[j1], &r2[s2-1]);
+                lcnt += (*r1)[i].p;
+                //float s = (*r1)[i].p + (*r2)[j1].p;
+                (*r1)[i].l = ll / lcnt;//(left.l*(*r1)[i].p + (*r2)[j1].l*(*r2)[j1].p) / s;
+                (*r1)[i].t = lt / lcnt;//(left.t*(*r1)[i].p + (*r2)[j1].t*(*r2)[j1].p) / s;
+                (*r1)[i].b = lb / lcnt;//(left.b*(*r1)[i].p + (*r2)[j1].b*(*r2)[j1].p) / s;
+                //swap_b4p(&(*r2)[j1], &(*r2)[s2-1]);
                 //s2 --;
             }
             if (rcnt > 0)
             {
-                rcnt += r1[i].p;
-                //float s = r1[i].p + r2[j2].p;
-                r1[i].r = rr / rcnt;//(right.r*r1[i].p + r2[j2].r*r2[j2].p) / s + 1;
-                r1[i].t = rt / rcnt;//(right.t*r1[i].p + r2[j2].t*r2[j2].p) / s;
-                r1[i].b = rb / rcnt;//(right.b*r1[i].p + r2[j2].b*r2[j2].p) / s;
-                //swap_b4p(&r2[j2], &r2[s2-1]);
+                rcnt += (*r1)[i].p;
+                //float s = (*r1)[i].p + (*r2)[j2].p;
+                (*r1)[i].r = rr / rcnt;//(right.r*(*r1)[i].p + (*r2)[j2].r*(*r2)[j2].p) / s + 1;
+                (*r1)[i].t = rt / rcnt;//(right.t*(*r1)[i].p + (*r2)[j2].t*(*r2)[j2].p) / s;
+                (*r1)[i].b = rb / rcnt;//(right.b*(*r1)[i].p + (*r2)[j2].b*(*r2)[j2].p) / s;
+                //swap_b4p(&(*r2)[j2], &(*r2)[s2-1]);
                 //s2 --;
             }
         }
-        else if (r1[i].l < 1 && r1[i].r > 1)
+        else if ((*r1)[i].l < 1 && (*r1)[i].r > 1)
         {
             box4panorama left, right;
-            left.l = r1[i].l;
+            left.l = (*r1)[i].l;
             left.r = 1;
-            left.t = r1[i].t;
-            left.b = r1[i].b;
+            left.t = (*r1)[i].t;
+            left.b = (*r1)[i].b;
 
             right.l = 0;
-            right.r = r1[i].r - 1;
-            right.t = r1[i].t;
-            right.b = r1[i].b;
+            right.r = (*r1)[i].r - 1;
+            right.t = (*r1)[i].t;
+            right.b = (*r1)[i].b;
 
-            float ll = left.l * r1[i].p;
-            float lt = left.t * r1[i].p;
-            float lb = left.b * r1[i].p;
-            float lcnt = 0;//r1[i].p;
+            float ll = left.l * (*r1)[i].p;
+            float lt = left.t * (*r1)[i].p;
+            float lb = left.b * (*r1)[i].p;
+            float lcnt = 0;//(*r1)[i].p;
 
-            float rr = right.r * r1[i].p;
-            float rt = right.t * r1[i].p;
-            float rb = right.b * r1[i].p;
-            float rcnt = 0;//r1[i].p;
+            float rr = right.r * (*r1)[i].p;
+            float rt = right.t * (*r1)[i].p;
+            float rb = right.b * (*r1)[i].p;
+            float rcnt = 0;//(*r1)[i].p;
 
             //int j1 = -1;
             //int j2 = -1;
@@ -306,32 +306,32 @@ void handle_clip(box4panorama * r1, int *size1, box4panorama * r2, int *size2, f
 
             for (int j=s2-1;j>=0;j--)
             {
-                if (r1[i].c == r2[j].c)
+                if ((*r1)[i].c == (*r2)[j].c)
                 {
-                    float iou1 = b4p_iou(&left, &r2[j]);
+                    float iou1 = b4p_iou(&left, &(*r2)[j]);
 
-                    float iou2 = b4p_iou(&right, &r2[j]);
+                    float iou2 = b4p_iou(&right, &(*r2)[j]);
 
                     if (iou1 > threshold)// && iou1 > maxiou1)
                     {
                         //maxiou1 = iou1;
                         //j1 = j;
-                        ll += r2[j].l * r2[j].p;
-                        lt += r2[j].t * r2[j].p;
-                        lb += r2[j].b * r2[j].p;
-                        lcnt += r2[j].p;
-                        swap_b4p(&r2[j], &r2[s2-1]);
+                        ll += (*r2)[j].l * (*r2)[j].p;
+                        lt += (*r2)[j].t * (*r2)[j].p;
+                        lb += (*r2)[j].b * (*r2)[j].p;
+                        lcnt += (*r2)[j].p;
+                        swap_b4p(&(*r2)[j], &(*r2)[s2-1]);
                         s2 --;
                     }
                     else if (iou2 > threshold)// && iou2 > maxiou2)
                     {
                         //maxiou2 = iou2;
                         //j2 = j;
-                        rr += r2[j].r * r2[j].p;
-                        rt += r2[j].t * r2[j].p;
-                        rb += r2[j].b * r2[j].p;
-                        rcnt += r2[j].p;
-                        swap_b4p(&r2[j], &r2[s2-1]);
+                        rr += (*r2)[j].r * (*r2)[j].p;
+                        rt += (*r2)[j].t * (*r2)[j].p;
+                        rb += (*r2)[j].b * (*r2)[j].p;
+                        rcnt += (*r2)[j].p;
+                        swap_b4p(&(*r2)[j], &(*r2)[s2-1]);
                         s2 --;
                     }
                 }
@@ -340,22 +340,22 @@ void handle_clip(box4panorama * r1, int *size1, box4panorama * r2, int *size2, f
 
             if (lcnt > 0)
             {
-                lcnt += r1[i].p;
-                //float s = r1[i].p + r2[j1].p;
-                r1[i].l = ll / lcnt;//(left.l*r1[i].p + r2[j1].l*r2[j1].p) / s;
-                r1[i].t = lt / lcnt;//(left.t*r1[i].p + r2[j1].t*r2[j1].p) / s;
-                r1[i].b = lb / lcnt;//(left.b*r1[i].p + r2[j1].b*r2[j1].p) / s;
-                //swap_b4p(&r2[j1], &r2[s2-1]);
+                lcnt += (*r1)[i].p;
+                //float s = (*r1)[i].p + (*r2)[j1].p;
+                (*r1)[i].l = ll / lcnt;//(left.l*(*r1)[i].p + (*r2)[j1].l*(*r2)[j1].p) / s;
+                (*r1)[i].t = lt / lcnt;//(left.t*(*r1)[i].p + (*r2)[j1].t*(*r2)[j1].p) / s;
+                (*r1)[i].b = lb / lcnt;//(left.b*(*r1)[i].p + (*r2)[j1].b*(*r2)[j1].p) / s;
+                //swap_b4p(&(*r2)[j1], &(*r2)[s2-1]);
                 //s2 --;
             }
             if (rcnt > 0)
             {
-                rcnt += r1[i].p;
-                //float s = r1[i].p + r2[j2].p;
-                r1[i].r = rr / rcnt;//(right.r*r1[i].p + r2[j2].r*r2[j2].p) / s + 1;
-                r1[i].t = rt / rcnt;//(right.t*r1[i].p + r2[j2].t*r2[j2].p) / s;
-                r1[i].b = rb / rcnt;//(right.b*r1[i].p + r2[j2].b*r2[j2].p) / s;
-                //swap_b4p(&r2[j2], &r2[s2-1]);
+                rcnt += (*r1)[i].p;
+                //float s = (*r1)[i].p + (*r2)[j2].p;
+                (*r1)[i].r = rr / rcnt;//(right.r*(*r1)[i].p + (*r2)[j2].r*(*r2)[j2].p) / s + 1;
+                (*r1)[i].t = rt / rcnt;//(right.t*(*r1)[i].p + (*r2)[j2].t*(*r2)[j2].p) / s;
+                (*r1)[i].b = rb / rcnt;//(right.b*(*r1)[i].p + (*r2)[j2].b*(*r2)[j2].p) / s;
+                //swap_b4p(&(*r2)[j2], &(*r2)[s2-1]);
                 //s2 --;
             }
         }
@@ -364,28 +364,28 @@ void handle_clip(box4panorama * r1, int *size1, box4panorama * r2, int *size2, f
     for (int i=0;i<s2;i++)
     {
         // find region that was cut
-        if (r2[i].l < 0.5 && r2[i].r > 0.5)
+        if ((*r2)[i].l < 0.5 && (*r2)[i].r > 0.5)
         {
             box4panorama left, right;
-            left.l = r2[i].l;
+            left.l = (*r2)[i].l;
             left.r = 0.5;
-            left.t = r2[i].t;
-            left.b = r2[i].b;
+            left.t = (*r2)[i].t;
+            left.b = (*r2)[i].b;
 
             right.l = 0.5;
-            right.r = r2[i].r;
-            right.t = r2[i].t;
-            right.b = r2[i].b;
+            right.r = (*r2)[i].r;
+            right.t = (*r2)[i].t;
+            right.b = (*r2)[i].b;
 
-            float ll = left.l * r2[i].p;
-            float lt = left.t * r2[i].p;
-            float lb = left.b * r2[i].p;
-            float lcnt = 0;//r2[i].p;
+            float ll = left.l * (*r2)[i].p;
+            float lt = left.t * (*r2)[i].p;
+            float lb = left.b * (*r2)[i].p;
+            float lcnt = 0;//(*r2)[i].p;
 
-            float rr = right.r * r2[i].p;
-            float rt = right.t * r2[i].p;
-            float rb = right.b * r2[i].p;
-            float rcnt = 0;//r2[i].p;
+            float rr = right.r * (*r2)[i].p;
+            float rt = right.t * (*r2)[i].p;
+            float rb = right.b * (*r2)[i].p;
+            float rcnt = 0;//(*r2)[i].p;
 
             //int j1 = -1;
             //int j2 = -1;
@@ -394,66 +394,66 @@ void handle_clip(box4panorama * r1, int *size1, box4panorama * r2, int *size2, f
 
             for (int j=s1-1;j>=0;j--)
             {
-                if (r2[i].c == r1[j].c)
+                if ((*r2)[i].c == (*r1)[j].c)
                 {
-                    float iou1 = b4p_iou(&left, &r1[j]);
+                    float iou1 = b4p_iou(&left, &(*r1)[j]);
 
-                    float iou2 = b4p_iou(&right, &r1[j]);
+                    float iou2 = b4p_iou(&right, &(*r1)[j]);
 
-                    //printf("k:%d c:%d u:%d l:%.8f r:%.8f t:%.8f b:%.8f iou1:%.4f iou2:%.4f\n", j, r1[j].c, r1[j].l, r1[j].u, r1[j].r, r1[j].t, r1[j].b, iou1, iou2);
+                    //printf("k:%d c:%d u:%d l:%.8f r:%.8f t:%.8f b:%.8f iou1:%.4f iou2:%.4f\n", j, (*r1)[j].c, (*r1)[j].l, (*r1)[j].u, (*r1)[j].r, (*r1)[j].t, (*r1)[j].b, iou1, iou2);
 
-                    if (iou1 > threshold /*&& iou1 > maxiou1*/ && abs(0.5 - r1[j].r) < 0.02)
+                    if (iou1 > threshold /*&& iou1 > maxiou1*/ && abs(0.5 - (*r1)[j].r) < 0.02)
                     {
                         //maxiou1 = iou1;
                         //j1 = j;
-                        ll += r1[j].l * r1[j].p;
-                        lt += r1[j].t * r1[j].p;
-                        lb += r1[j].b * r1[j].p;
-                        lcnt += r1[j].p;
-                        swap_b4p(&r1[j], &r1[s1-1]);
+                        ll += (*r1)[j].l * (*r1)[j].p;
+                        lt += (*r1)[j].t * (*r1)[j].p;
+                        lb += (*r1)[j].b * (*r1)[j].p;
+                        lcnt += (*r1)[j].p;
+                        swap_b4p(&(*r1)[j], &(*r1)[s1-1]);
                         s1 --;
                     }
-                    else if (iou2 > threshold /*&& iou2 > maxiou2*/ && abs(r1[j].l - 0.5) < 0.02)
+                    else if (iou2 > threshold /*&& iou2 > maxiou2*/ && abs((*r1)[j].l - 0.5) < 0.02)
                     {
                         //maxiou2 = iou2;
                         //j2 = j;
-                        rr += r1[j].r * r1[j].p;
-                        rt += r1[j].t * r1[j].p;
-                        rb += r1[j].b * r1[j].p;
-                        rcnt += r1[j].p;
-                        swap_b4p(&r1[j], &r1[s1-1]);
+                        rr += (*r1)[j].r * (*r1)[j].p;
+                        rt += (*r1)[j].t * (*r1)[j].p;
+                        rb += (*r1)[j].b * (*r1)[j].p;
+                        rcnt += (*r1)[j].p;
+                        swap_b4p(&(*r1)[j], &(*r1)[s1-1]);
                         s1 --;
                     }
                 }
             }
             if (lcnt > 0)
             {
-                lcnt += r2[i].p;
-                //float s = r2[i].p + r1[j1].p;
-                r2[i].l = ll / lcnt;//(left.l*r2[i].p + r1[j1].l*r1[j1].p) / s;
-                r2[i].t = lt / lcnt;//(left.t*r2[i].p + r1[j1].t*r1[j1].p) / s;
-                r2[i].b = lb / lcnt;//(left.b*r2[i].p + r1[j1].b*r1[j1].p) / s;
-                //swap_b4p(&r1[j1], &r1[s1-1]);
+                lcnt += (*r2)[i].p;
+                //float s = (*r2)[i].p + (*r1)[j1].p;
+                (*r2)[i].l = ll / lcnt;//(left.l*(*r2)[i].p + (*r1)[j1].l*(*r1)[j1].p) / s;
+                (*r2)[i].t = lt / lcnt;//(left.t*(*r2)[i].p + (*r1)[j1].t*(*r1)[j1].p) / s;
+                (*r2)[i].b = lb / lcnt;//(left.b*(*r2)[i].p + (*r1)[j1].b*(*r1)[j1].p) / s;
+                //swap_b4p(&(*r1)[j1], &(*r1)[s1-1]);
                 //s1 --;
                 //printf("------\n");
-                //r1.erase(r1.begin() + j1);
+                //(*r1).erase((*r1).begin() + j1);
             }
             if (rcnt > 0)
             {
-                rcnt += r2[i].p;
-                //float s = r2[i].p + r1[j2].p;
-                r2[i].r = rr / rcnt;//(right.r*r2[i].p + r1[j2].r*r1[j2].p) / s;
-                r2[i].t = rt / rcnt;//(right.t*r2[i].p + r1[j2].t*r1[j2].p) / s;
-                r2[i].b = rb / rcnt;//(right.b*r2[i].p + r1[j2].b*r1[j2].p) / s;
-                //swap_b4p(&r1[j2], &r1[s1-1]);
+                rcnt += (*r2)[i].p;
+                //float s = (*r2)[i].p + (*r1)[j2].p;
+                (*r2)[i].r = rr / rcnt;//(right.r*(*r2)[i].p + (*r1)[j2].r*(*r1)[j2].p) / s;
+                (*r2)[i].t = rt / rcnt;//(right.t*(*r2)[i].p + (*r1)[j2].t*(*r1)[j2].p) / s;
+                (*r2)[i].b = rb / rcnt;//(right.b*(*r2)[i].p + (*r1)[j2].b*(*r1)[j2].p) / s;
+                //swap_b4p(&(*r1)[j2], &(*r1)[s1-1]);
                 //s1 --;
                 //printf("------\n");
-                //r1.erase(r1.begin() + j2);
+                //(*r1).erase((*r1).begin() + j2);
             }
         }
     }
-    r1 = (box4panorama *)realloc(r1, s1 * sizeof(box4panorama));
-    r2 = (box4panorama *)realloc(r2, s2 * sizeof(box4panorama));
+    (*r1) = (box4panorama *)realloc((*r1), s1 * sizeof(box4panorama));
+    (*r2) = (box4panorama *)realloc((*r2), s2 * sizeof(box4panorama));
     *size1 = s1;
     *size2 = s2;
     //printf("s1:%d, s2:%d\n", s1, s2);

@@ -501,13 +501,13 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
         box4panorama * tb4ps = (box4panorama *)malloc(num * sizeof(box4panorama));
         box4panorama * bb4ps = (box4panorama *)malloc(num * sizeof(box4panorama));
         int tnum, bnum;
-        box_2_box4panorama(tb4ps,&tnum,bb4ps,&bnum,boxes,num,thresh,probs,l.classes,GAP,net.w);
+        box_2_box4panorama(&tb4ps,&tnum,&bb4ps,&bnum,boxes,num,thresh,probs,l.classes,GAP,net.w);
         //printf("convert finish. top:%d, bot:%d\n",tnum,bnum);
 
         finetune_self(tb4ps, &tnum, 0.5);
         finetune_self(bb4ps, &bnum, 0.5);
 
-        handle_clip(bb4ps,&bnum,tb4ps,&tnum,0.2);
+        handle_clip(&bb4ps,&bnum,&tb4ps,&tnum,0.2);
         //printf("clip finish\n");
 
         int fnum = tnum+bnum;

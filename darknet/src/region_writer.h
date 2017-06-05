@@ -34,9 +34,9 @@ void cal_lrtb(box4panorama * b, float x, float y, float w, float h);
 // calculate the iou of two box4panoramas
 float b4p_iou(box4panorama * b1, box4panorama * b2);
 // convert boxes into box4panoramas
-void box_2_box4panorama(box4panorama * tb4ps, int *tnum, box4panorama * bb4ps, int * bnum, box *boxes, int num, float thresh, float **probs, int classes, int gap, int size);
+void box_2_box4panorama(box4panorama ** tb4ps, int *tnum, box4panorama ** bb4ps, int * bnum, box *boxes, int num, float thresh, float **probs, int classes, int gap, int size);
 // handle clip
-void handle_clip(box4panorama * r1, int * size1, box4panorama * r2, int * size2, float threshold);
+void handle_clip(box4panorama ** r1, int * size1, box4panorama ** r2, int * size2, float threshold);
 // finetune the boxes
 void finetune_both(box4panorama * r1, int * size1, box4panorama * r2, int * size2, float threshold, box4panorama * merged, int * size);
 // finetune self across clip line

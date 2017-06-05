@@ -113,4 +113,5 @@ data load_data_panorama(int n, char **paths, int m, int w, int h, int boxes, int
 void fill_crop_mode_truth(char *path, int num_boxes, float *truth, int classes, int flip, float cl, float ct, float cw, float ch);
 void fill_merge_mode_truth(char *path, int num_boxes, float *truth, int classes, float cutline, float dh1, float dh2);
 void correct_crop_mode_boxes(box_label *boxes, int * count, float cl, float ct, float cw, float ch, int flip);
+void correct_merge_mode_boxes(box_label *boxes, int * count, float cutline, float dh1, float dh2);
 #endif
