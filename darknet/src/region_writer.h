@@ -38,9 +38,9 @@ void box_2_box4panorama(box4panorama ** tb4ps, int *tnum, box4panorama ** bb4ps,
 // handle clip
 void handle_clip(box4panorama ** r1, int * size1, box4panorama ** r2, int * size2, float threshold);
 // finetune the boxes
-void finetune_both(box4panorama * r1, int * size1, box4panorama * r2, int * size2, float threshold, box4panorama * merged, int * size);
+box4panorama * finetune_both(box4panorama * r1, int * size1, box4panorama * r2, int * size2, float threshold, box4panorama * merged, int * size);
 // finetune self across clip line
-void finetune_self(box4panorama * rg, int * size, float threshold);
+box4panorama * finetune_self(box4panorama * rg, int * size, float threshold);
 // copy box4panorama to another
 void b4p_copy(box4panorama * dst, const box4panorama * src);
 // every char of a string match c

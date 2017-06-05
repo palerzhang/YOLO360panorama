@@ -459,7 +459,7 @@ void handle_clip(box4panorama ** r1, int *size1, box4panorama ** r2, int *size2,
     //printf("s1:%d, s2:%d\n", s1, s2);
 }
 
-void finetune_both(box4panorama * r1, int *size1, box4panorama * r2, int *size2, float threshold, box4panorama * merged, int * size)
+box4panorama * finetune_both(box4panorama * r1, int *size1, box4panorama * r2, int *size2, float threshold, box4panorama * merged, int * size)
 {
     int s1 = *size1;
     int s2 = *size2;
@@ -576,9 +576,11 @@ void finetune_both(box4panorama * r1, int *size1, box4panorama * r2, int *size2,
     }
     free (related_list);
     free (tags);
+	
+	return merged;
 }
 
-void finetune_self(box4panorama * rg, int * size, float threshold)
+box4panorama * finetune_self(box4panorama * rg, int * size, float threshold)
 {
     int s = *size;
     float cl[3] = {0.5, 1.0, 0.0};
@@ -635,6 +637,7 @@ void finetune_self(box4panorama * rg, int * size, float threshold)
     }
     *size = s;
     rg = (box4panorama *)realloc(rg, s * sizeof(box4panorama));
+	return rg;
 }
 
 b4p_copy(box4panorama * dst, const box4panorama * src)
