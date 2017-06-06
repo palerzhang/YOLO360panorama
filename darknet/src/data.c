@@ -1296,7 +1296,7 @@ void fill_crop_mode_truth(char *path, int num_boxes, float *truth, int classes, 
     int count = 0;
     box_label *boxes = read_boxes(labelpath, &count);
     randomize_boxes(boxes, count);
-    correct_crop_mode_boxes(boxes, &count, cl, ct, cw, ch, flip);    
+    boxes = correct_crop_mode_boxes(boxes, &count, cl, ct, cw, ch, flip);    
 
     if(count > num_boxes) count = num_boxes;
     float x,y,w,h;
@@ -1334,7 +1334,7 @@ void fill_merge_mode_truth(char *path, int num_boxes, float *truth, int classes,
     int count = 0;
     box_label *boxes = read_boxes(labelpath, &count);
     randomize_boxes(boxes, count);
-    correct_merge_mode_boxes(boxes, &count, cutline, dh1, dh2);    
+    boxes = correct_merge_mode_boxes(boxes, &count, cutline, dh1, dh2);    
 
     if(count > num_boxes) count = num_boxes;
     float x,y,w,h;
@@ -1358,12 +1358,15 @@ void fill_merge_mode_truth(char *path, int num_boxes, float *truth, int classes,
     free(boxes);
 }
 
-void correct_crop_mode_boxes(box_label *boxes, int *count, float cl, float ct, float cw, float ch, int flip)
+box_label * correct_crop_mode_boxes(box_label *boxes, int *count, float cl, float ct, float cw, float ch, int flip)
 {
     int n = *count;
     // failure
     //if (cw == 0 || ch == 0) return;
     //int m = n;
+
+    // convert boxes
+    float cr = cl + 1.0 / cw;
     for(int i = 0; i < n; ++i){
         /*if(boxes[i].x == 0 && boxes[i].y == 0) {
             boxes[i].x = 999999;
@@ -1372,29 +1375,39 @@ void correct_crop_mode_boxes(box_label *boxes, int *count, float cl, float ct, f
             boxes[i].h = 999999;
             continue;
         }*/
-        if (boxes[i].left < 0 && boxes[i].right > 0)
+        if (boxes[i].right < cl)
         {
-            boxes[i].left   = boxes[i].left + 1;
-            boxes[i].right  = 1;
-
+            boxes[i].left  += 1;
+            boxes[i].right += 1;
+        }
+        else if (boxes[i].left > cr)
+        {
+            boxes[i].left -= 1;
+            boxes[i].right -= 1;
+        }
+        else if (boxes[i].left < cl && boxes[i].right > cl)
+        {
             boxes = (box_label*)realloc(boxes, (n+1)*sizeof(box_label));
-            boxes[n].left   = 0;
-            boxes[n].right  = boxes[i].right;
+            boxes[n].left   = boxes[i].left + 1;
+            boxes[n].right  = cl + 1;
             boxes[n].top    = boxes[i].top;
             boxes[n].bottom = boxes[i].bottom;
-            n+=1;
-        }
-        else if (boxes[i].left < 1 && boxes[i].right > 1)
-        {
-            boxes[i].left   = boxes[i].left;
-            boxes[i].right  = 1;
+            boxes[n].id     = boxes[i].id;
+            n++;
 
+            boxes[i].left   = cl;
+        }
+        else if (boxes[i].left < cr && boxes[i].right > cr)
+        {
             boxes = (box_label*)realloc(boxes, (n+1)*sizeof(box_label));
-            boxes[n].left   = 0;
+            boxes[n].left   = cr - 1;
             boxes[n].right  = boxes[i].right - 1;
             boxes[n].top    = boxes[i].top;
             boxes[n].bottom = boxes[i].bottom;
-            n+=1;
+            boxes[n].id     = boxes[i].id;
+            n++;
+
+            boxes[i].right   = cr;
         }
 
         boxes[i].left   = (boxes[i].left  - cl) * cw;
@@ -1421,15 +1434,35 @@ void correct_crop_mode_boxes(box_label *boxes, int *count, float cl, float ct, f
         boxes[i].w = constrain(0, 1, boxes[i].w);
         boxes[i].h = constrain(0, 1, boxes[i].h);
     }
+
+    // remove useless boxes
+    // this part is done outside
+    /*for (int i=n-1;i>=0;i--)
+    {
+        if (boxes[i].w == 0 || boxes[i].h == 0)
+        {
+            //swap_box_label(&boxes[i], &boxes[n-1]);
+            // swap
+            box_label tmp;
+            boxes[i] = tmp;
+            boxes[i] = boxes[n-1];
+            boxes[n-1] = tmp;
+            n--;
+        }
+    }
+
+    boxes = (box_label *)realloc(boxes, n*sizeof(box_label));*/
     *count = n;
+
+    return boxes;
 }
 
-void correct_merge_mode_boxes(box_label *boxes, int * count, float cutline, float dh1, float dh2)
+box_label * correct_merge_mode_boxes(box_label *boxes, int * count, float cutline, float dh1, float dh2)
 {
     int n = *count;
     // failure
     //if (cw == 0 || ch == 0) return;
-    int m = n;
+    //int m = n;
     box_label * cpy = (box_label*)malloc(n * sizeof(box_label));
     memmove(cpy, boxes, n * sizeof(box_label));
 
@@ -1437,39 +1470,85 @@ void correct_merge_mode_boxes(box_label *boxes, int * count, float cutline, floa
     cut[1] = cut[1] > 1.0 ? cut[1] - 1.0 : cut[1];
     int size[2] = {n, n};
 
+    int j = 0;
+    int capacity = n;
     for (int k = 0; k < 2; k++)
     {
-        for (int i = 0; i < m; ++i)
+        for (int i = 0; i < n; ++i)
         {
+            if (j >= capacity)
+            {
+                capacity = capacity + capacity / 2;
+                boxes = (box_label*)realloc(boxes, capacity*sizeof(box_label));
+            }
             if (cpy[i].left < cut[k] && cpy[i].right > cut[k])
             {
-                boxes[i].left   = cpy[i].left - cut[k] + 1;
-                boxes[i].right  = 1;
+                boxes[j].id = cpy[i].id;
+                boxes[j].left   = cpy[i].left - cut[k] + 1;
+                boxes[j].right  = 1;
+                boxes[j].top    = cpy[i].top;
+                boxes[j].bottom = cpy[i].bottom;
+                j++;
 
-                boxes = (box_label*)realloc(boxes, (n+1)*sizeof(box_label));
-                boxes[n].left   = 0;
-                boxes[n].right  = cpy[i].right - cut[k];
-                boxes[n].top    = cpy[i].top;
-                boxes[n].bottom = cpy[i].bottom;
-                n+=1;
+                if (j >= capacity)
+                {
+                    capacity = capacity + capacity / 2 + 1;
+                    boxes = (box_label*)realloc(boxes, capacity*sizeof(box_label));
+                }
+                boxes[j].id = cpy[i].id;
+                boxes[j].left   = 0;
+                boxes[j].right  = cpy[i].right - cut[k];
+                boxes[j].top    = cpy[i].top;
+                boxes[j].bottom = cpy[i].bottom;
+                j++;
+            }
+            else if (cpy[i].left < cut[k] + 1 && cpy[i].right > cut[k] + 1)
+            {
+                boxes[j].id = cpy[i].id;
+                boxes[j].left   = cpy[i].left - cut[k];
+                boxes[j].right  = 1;
+                boxes[j].top    = cpy[i].top;
+                boxes[j].bottom = cpy[i].bottom;
+                j++;
+
+                if (j >= capacity)
+                {
+                    capacity = capacity + capacity / 2 + 1;
+                    boxes = (box_label*)realloc(boxes, capacity*sizeof(box_label));
+                }
+                boxes[j].id = cpy[i].id;
+                boxes[j].left   = 0;
+                boxes[j].right  = cpy[i].right - cut[k] - 1;
+                boxes[j].top    = cpy[i].top;
+                boxes[j].bottom = cpy[i].bottom;
+                j++;
             }
             else if (cpy[i].right <= cut[k])
             {
-                boxes[i].left   = cpy[i].left - cut[k] + 1;
-                boxes[i].right  = cpy[i].right - cut[k] + 1;
+                boxes[j].id = cpy[i].id;
+                boxes[j].left   = cpy[i].left - cut[k] + 1;
+                boxes[j].right  = cpy[i].right - cut[k] + 1;
+                boxes[j].top    = cpy[i].top;
+                boxes[j].bottom = cpy[i].bottom;
+                j++;
             }
             else if (cpy[i].left >= cut[k])
             {
-                boxes[i].left   = cpy[i].left - cut[k];
-                boxes[i].right  = cpy[i].right - cut[k];
+                boxes[j].id = cpy[i].id;
+                boxes[j].left   = cpy[i].left - cut[k];
+                boxes[j].right  = cpy[i].right - cut[k];
+                boxes[j].top    = cpy[i].top;
+                boxes[j].bottom = cpy[i].bottom;
+                j++;
             }
             else
                 continue;
-            boxes[i].top    = cpy[i].top;
-            boxes[i].bottom = cpy[i].bottom;
         }
-        size[k] = n;
+        size[k] = j;
     }
+
+    free(cpy);
+
     for (int i=0; i<size[0]; i++)
     {
         boxes[i].top    = dh1 * boxes[i].top;
@@ -1506,5 +1585,8 @@ void correct_merge_mode_boxes(box_label *boxes, int * count, float cutline, floa
         boxes[i].w = constrain(0, 1, boxes[i].w);
         boxes[i].h = constrain(dh2, 1, boxes[i].h);
     }
+
     *count = size[1];
+
+    return boxes;
 }
