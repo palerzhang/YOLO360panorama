@@ -5,6 +5,8 @@
 *.png
 *.jpg
 *.weights
+*.conv.23
+*.23
 old/
 mnist/
 data/
