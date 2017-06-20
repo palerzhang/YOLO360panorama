@@ -743,6 +743,7 @@ void *load_thread(void *ptr)
         *a.d = load_data_tag(a.paths, a.n, a.m, a.classes, a.min, a.max, a.size, a.angle, a.aspect, a.hue, a.saturation, a.exposure);
     } else if (a.type == PANORAMA_DATA)
     {
+        //*a.d = load_data_detection(a.n, a.paths, a.m, a.w, a.h, a.num_boxes, a.classes, a.jitter, a.hue, a.saturation, a.exposure);
         *a.d = load_data_panorama(a.n, a.paths, a.m, a.w, a.h, a.num_boxes, a.classes, a.jitter, a.hue, a.saturation, a.exposure);
     }
     free(ptr);
@@ -1211,9 +1212,12 @@ data load_data_panorama(int n, char **paths, int m, int w, int h, int boxes, int
 
     d.y = make_matrix(n, 5*boxes);
     for(i = 0; i < n; ++i){
+        //printf("%s\n",random_paths[i]);
         image orig = load_image_color(random_paths[i], 0, 0);
+        //printf("load success\n");
 
-        int crop = rand() % 2;
+        //int crop = rand() % 2;
+        int crop = 0;
         if (crop)
         {
             // crop mode
@@ -1224,6 +1228,7 @@ data load_data_panorama(int n, char **paths, int m, int w, int h, int boxes, int
             int pbot   = rand_uniform(-dh, dh);
             int pleft  = rand() % ow;
             int sheight = oh - ptop - pbot;
+            if (sheight == 0) sheight = oh + ptop + pbot;
             if (sheight > ow) sheight = ow;
             int swidth = sheight;
 
@@ -1295,8 +1300,15 @@ void fill_crop_mode_truth(char *path, int num_boxes, float *truth, int classes, 
     find_replace(labelpath, ".JPEG", ".txt", labelpath);
     int count = 0;
     box_label *boxes = read_boxes(labelpath, &count);
+
+    //int n1 = count;
+    //printf("after read %s %d\n", labelpath, count);
     randomize_boxes(boxes, count);
-    boxes = correct_crop_mode_boxes(boxes, &count, cl, ct, cw, ch, flip);    
+    //printf("after random %d\n", count);
+    boxes = correct_crop_mode_boxes(boxes, &count, cl, ct, cw, ch, flip);
+    //int n2 = count;
+    //printf("after correct %d\n------------------------\n", count);
+    
 
     if(count > num_boxes) count = num_boxes;
     float x,y,w,h;
@@ -1334,6 +1346,7 @@ void fill_merge_mode_truth(char *path, int num_boxes, float *truth, int classes,
     int count = 0;
     box_label *boxes = read_boxes(labelpath, &count);
     randomize_boxes(boxes, count);
+
     boxes = correct_merge_mode_boxes(boxes, &count, cutline, dh1, dh2);    
 
     if(count > num_boxes) count = num_boxes;
@@ -1364,16 +1377,23 @@ box_label * correct_crop_mode_boxes(box_label *boxes, int *count, float cl, floa
     // failure
     //if (cw == 0 || ch == 0) return;
     //int m = n;
+    //printf("begin crop n %d\n", n);
 
     // convert boxes
     float cr = cl + 1.0 / cw;
     for(int i = 0; i < n; ++i){
         /*if(boxes[i].x == 0 && boxes[i].y == 0) {
-            boxes[i].x = 999999;
-            boxes[i].y = 999999;
-            boxes[i].w = 999999;
-            boxes[i].h = 999999;
-            continue;
+            //boxes[i].x = 999999;
+            //boxes[i].y = 999999;
+            //boxes[i].w = 0;
+            //boxes[i].h = 0;
+            //continue;
+            printf("got (0,0) %d %.4f %.4f %.4f %.4f\n", 
+                i, 
+                boxes[i].left,
+                boxes[i].right,
+                boxes[i].top,
+                boxes[i].bottom);
         }*/
         if (boxes[i].right < cl)
         {
