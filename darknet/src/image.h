@@ -95,5 +95,59 @@ image crop_panorama_image(image im, int x, int y, int w, int h);
 image merge_at_cutline(image im, float cutline, int gap);
 //void draw_detections_360(image im, int num, float thresh, box *boxes, float **probs, char **names, image **alphabet, int classes);
 
+
+// convert normal image to part of panorama
+#define __PI 3.14159265359
+#define __STEP 2
+#define __TOTL 8
+
+typedef struct{
+    float x;
+    float y;
+    float z;
+} point;
+
+typedef struct{
+    float theta;
+    float phi;
+    float r;
+} polar;
+
+typedef struct{
+    float A;
+    float B;
+    float C;
+    float D;
+} plane;
+
+typedef struct{
+    int left;
+    int right;
+    int top;
+    int bottom;
+} lrtb_box;
+
+float minimum(float v1, float v2, float v3, float v4);
+
+float maximum(float v1, float v2, float v3, float v4);
+
+float rtoa(float r);
+
+float ator(float a);
+
+float predict_cam_dis(int w, int h);
+
+plane get_plane(float r, float theta);
+
+polar map_from_point(point p, float r, float theta, int w, int h);
+
+point map_from_polar(polar p, plane P, float theta, int w, int h);
+
+void generate_points(point *pts, lrtb_box b, int step);
+
+lrtb_box box_transform(point * pts, int size, float r, float theta, int srcw, int srch, int panw, int panh);
+
+image convert(image img, int w, float theta, float r);
+
 #endif
 

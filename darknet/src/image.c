@@ -1689,3 +1689,354 @@ image merge_at_cutline(image im, float cutline, int gap)
 
     return out;
 }
+
+// convert normal image to part of panorama
+float minimum(float v1, float v2, float v3, float v4)
+{
+    float r = v1;
+    if (r>v2) r = v2;
+    if (r>v3) r = v3;
+    if (r>v4) r = v4;
+    return r;
+}
+
+float maximum(float v1, float v2, float v3, float v4)
+{
+    float r = v1;
+    if (r<v2) r = v2;
+    if (r<v3) r = v3;
+    if (r<v4) r = v4;
+    return r;
+}
+
+float rtoa(float r)
+{
+    return r / __PI * 180.0f;
+}
+
+float ator(float a)
+{
+    return a / 180.0f * __PI;
+}
+
+float predict_cam_dis(int w, int h)
+{
+    // 60 - 100
+    int l = (w > h ? w : h);
+
+    float a = ator(40 + rand() % 60);
+    //float a = ator(80);
+
+    float r = l / a * rand_uniform(1.0, 1.25);
+    return r;
+}
+
+plane get_plane(float r, float theta)
+{
+    plane P;
+
+    float x,y,z;
+    x = 0;
+    y = 0;
+    z = -r;
+
+    float _y = y * cos(theta) + z * sin(theta);
+    float _z = z * cos(theta) - y * sin(theta);
+    y = _y;
+    z = _z;
+
+    P.A = x;
+    P.B = y;
+    P.C = z;
+    P.D = - (x*x + y*y + z*z);
+
+    return P;
+} 
+
+polar map_from_point(point p, float r, float theta, int w, int h)
+{
+    // theta : radian
+    polar po;
+    // center and move to -r
+    float x, y, z;
+    x = p.x - w / 2.0f;
+    y = p.y - h / 2.0f;
+    z = -r;
+
+    // rotate with x
+    // use -theta
+    float _y = y * cos(theta) + z * sin(theta);
+    float _z = z * cos(theta) - y * sin(theta);
+    y = _y;
+    z = _z;
+
+    float x2 = x * x;
+    float y2 = y * y;
+    float z2 = z * z;
+
+    // nearest intersection
+    if (x != 0)
+    {
+        float xtmp = r * x / sqrt(x2 + y2 + z2);
+        float ytmp = y / x * xtmp;
+        float ztmp = z / x * xtmp;
+        float dir = xtmp * x + ytmp * y + ztmp * z;
+        if (dir < 0)
+        {
+            xtmp = -xtmp;
+            ytmp = -ytmp;
+            ztmp = -ztmp;
+        }
+        x = xtmp;
+        y = ytmp;
+        z = ztmp;
+    }
+    else if (y != 0)
+    {
+        float ytmp = r * y / sqrt(x2 + y2 + z2);
+        float xtmp = x / y * ytmp;
+        float ztmp = z / y * ytmp;
+        float dir = xtmp * x + ytmp * y + ztmp * z;
+        if (dir < 0)
+        {
+            xtmp = -xtmp;
+            ytmp = -ytmp;
+            ztmp = -ztmp;
+        }
+        x = xtmp;
+        y = ytmp;
+        z = ztmp;
+    }
+    else if (z != 0)
+    {
+        float ztmp = r * z / sqrt(x2 + y2 + z2);
+        float xtmp = x / z * ztmp;
+        float ytmp = y / z * ztmp;
+        float dir = xtmp * x + ytmp * y + ztmp * z;
+        if (dir < 0)
+        {
+            xtmp = -xtmp;
+            ytmp = -ytmp;
+            ztmp = -ztmp;
+        }
+        x = xtmp;
+        y = ytmp;
+        z = ztmp;
+    }
+    else
+        return po;
+
+    // convert to polar
+    po.phi = acos(z / r);
+    float sin_phi = sin(po.phi);
+    float cos_theta = x / (r * sin_phi);
+    float sin_theta = y / (r * sin_phi);
+    po.theta = acos(cos_theta);
+    po.r = r;
+    if (sin_theta < 0)
+        po.theta = 2 * __PI - po.theta;
+
+    return po;
+}
+
+point map_from_polar(polar p, plane P, float theta, int w, int h)
+{
+    point pt;
+    pt.x = -1;
+    pt.y = -1;
+
+    float x,y,z;
+    x = p.r * sin(p.phi) * cos(p.theta);
+    y = p.r * sin(p.phi) * sin(p.theta);
+    z = p.r * cos(p.phi);
+    float x0 = x;
+    float y0 = y;
+    float z0 = z;
+
+    if (x != 0)
+    {
+        float yx = y / x;
+        float zx = z / x;
+        x = -P.D / (P.A + P.B * yx + P.C * zx);
+        y = yx * x;
+        z = zx * x;
+    }
+    else if (y != 0)
+    {
+        float xy = x / y;
+        float zy = z / y;
+        y = -P.D / (P.A * xy + P.B + P.C * zy);
+        x = xy * y;
+        z = zy * y;
+    }
+    else if (z != 0)
+    {
+        float xz = x / z;
+        float yz = y / z;
+        z = -P.D / (P.A * xz + P.B * yz + P.C);
+        x = xz * z;
+        y = yz * z;
+    }
+    else
+        return pt;
+
+    if (x*x0 + y*y0 + z*z0 <= 0)
+        return pt;
+
+    float _y = y * cos(theta) + z * sin(theta);
+    float _z = z * cos(theta) - y * sin(theta);
+    y = _y;
+    z = _z;
+
+    pt.x = x + w / 2.0f;
+    pt.y = y + h / 2.0f;
+    pt.z = z + p.r;
+
+    return pt;
+}
+
+void generate_points(point *pts, lrtb_box b, int step)
+{
+    int k = 0;
+    float ws = 1.0f * (b.right - b.left) / step;
+    float hs = 1.0f * (b.bottom - b.top) / step;
+    for (int i=0; i<step; i++)
+    {
+        pts[k].x = b.left + i * ws;
+        pts[k].y = b.top;
+        pts[k].z = 0;
+
+        pts[step + k].x = b.right;
+        pts[step + k].y = b.top + i * hs;
+        pts[step + k].z = 0;
+
+        pts[step * 2 + k].x = b.right - i * ws;
+        pts[step * 2 + k].y = b.bottom;
+        pts[step * 2 + k].z = 0;
+
+        pts[step * 3 + k].x = b.left;
+        pts[step * 3 + k].y = b.bottom - i * hs;
+        pts[step * 3 + k].z = 0;
+
+        k++;
+    }
+}
+
+lrtb_box box_transform(point * pts, int size, float r, float theta, int srcw, int srch, int panw, int panh)
+{
+    lrtb_box ret;
+    float minx =  99999;
+    float maxx = -99999;
+    float miny =  99999;
+    float maxy = -99999;
+
+    for (int i=0;i<size;i++)
+    {
+        polar po = map_from_point(pts[i], r, theta, srcw, srch);
+        if (po.phi < miny)
+            miny = po.phi;
+
+        if (po.phi > maxy)
+            maxy = po.phi;
+
+        if (po.theta < minx)
+            minx = po.theta;
+
+        if (po.theta > maxx)
+            maxx = po.theta;
+    }
+
+    ret.left   = minx / (2 * __PI) * (panw-1);
+    ret.right  = maxx / (2 * __PI) * (panw-1);
+    ret.top    = miny / (    __PI) * (panh-1);
+    ret.bottom = maxy / (    __PI) * (panh-1);
+
+    return ret;
+}
+
+image convert(image img, int w, float theta, float r)
+{
+    if (w <= 0 || w > 4096)
+        w = 4096;
+
+    int h = w / 2;
+    //image out = make_image(w, h, 3);
+
+    //float theta = ator(rand() % 180);
+    //float r = predict_cam_dis(img.w, img.h);
+    plane P = get_plane(r, theta);
+
+    lrtb_box b;
+    b.left  = 0;
+    b.right = img.w - 1;
+    b.top = 0;
+    b.bottom = img.h - 1;
+
+    point *pts = (point *)malloc(sizeof(point) * __TOTL);
+    generate_points(pts, b, __STEP);
+    lrtb_box nbx = box_transform(pts,__TOTL,r,theta,img.w,img.h,w,h);
+    free(pts);
+
+    int ww = nbx.right - nbx.left;
+    int hh = nbx.bottom - nbx.top;
+    image out = make_image(ww,hh,3);
+
+    int i,j,k;
+    for(j = 0; j < hh; ++j)
+    {
+        for(i = 0; i < ww; ++i)
+        {
+            polar po;
+            po.r = r;
+            po.theta = (float)(i + nbx.left) / (w-1) * (2 * __PI);
+            po.phi   = (float)(j + nbx.top)  / (h-1) * (       __PI);
+            point p = map_from_polar(po, P, -theta, img.w, img.h);
+
+            if ((p.x < 0.01 || p.x > img.w-1) || (p.y < 0.01 || p.y > img.h-1))
+            {   
+                //printf("I'm here\n");
+                for(k = 0; k < 3; ++k)
+                {
+                    set_pixel(out,i,j,k,0);
+                }
+            }
+            else
+            {
+                int x1,x2,y1,y2;
+                x1 = p.x;
+                x2 = x1 + 1;
+                y1 = p.y;
+                y2 = y1 + 1;
+
+                float dx1 = p.x - x1;
+                float dx2 = x2 - p.x;
+                float dy1 = p.y - y1;
+                float dy2 = y2 - p.y;
+
+                if (x2 > img.w - 1)
+                    x2 = img.w - 1;
+                if (y2 > img.h - 1)
+                    y2 = img.h - 1;
+
+                for(k = 0; k < 3; ++k)
+                {
+                    //set_pixel(out,i,j,k,0);
+                    float v11 = get_pixel(img,x1,y1,k);
+                    float v12 = get_pixel(img,x1,y2,k);
+                    float v21 = get_pixel(img,x2,y1,k);
+                    float v22 = get_pixel(img,x2,y2,k);
+                    float v = v11 * dx2 * dy2
+                        + v12 * dx2 * dy1
+                        + v21 * dx1 * dy2
+                        + v22 * dx1 * dy1;
+
+                    if (v < 0) v = 0;
+                    if (v > 1) v = 1;
+                    set_pixel(out,i,j,k,v);
+                }
+            }
+        }
+    }
+
+    return out;
+}

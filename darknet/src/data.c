@@ -1216,6 +1216,7 @@ data load_data_panorama(int n, char **paths, int m, int w, int h, int boxes, int
         image orig = load_image_color(random_paths[i], 0, 0);
         //printf("load success\n");
 
+        /*
         //int crop = rand() % 2;
         int crop = 0;
         if (crop)
@@ -1280,7 +1281,48 @@ data load_data_panorama(int n, char **paths, int m, int w, int h, int boxes, int
             free_image(sized);
         }
         //fill_truth_detection(random_paths[i], boxes, d.y.vals[i], classes, flip, dx, dy, 1./sx, 1./sy);
+        */
 
+        // now use converted image to train
+        float theta = ator(rand() % 180);
+        float r = predict_cam_dis(orig.w, orig.h);
+        image converted = convert(orig, 4096, theta, r);
+
+        int oh = converted.h;
+        int ow = converted.w;
+
+        int dw = (ow*jitter);
+        int dh = (oh*jitter);
+
+        int pleft  = rand_uniform(-dw, dw);
+        int pright = rand_uniform(-dw, dw);
+        int ptop   = rand_uniform(-dh, dh);
+        //int pbot   = rand_uniform(-dh, dh);
+
+        int swidth =  ow - pleft - pright;
+        //int sheight = oh - ptop - pbot;
+        int sheight = swidth;
+
+        float sx = (float)swidth  / ow;
+        float sy = (float)sheight / oh;
+
+        int flip = rand()%2;
+        // cut the image
+        image cropped = crop_image(orig, pleft, ptop, swidth, sheight);
+
+        float dx = ((float)pleft/ow)/sx;
+        float dy = ((float)ptop /oh)/sy;
+        // resized
+        image sized = resize_image(cropped, w, h);
+        if(flip) flip_image(sized);
+        random_distort_image(sized, hue, saturation, exposure);
+        d.X.vals[i] = sized.data;
+
+        fill_convert_mode_truth(random_paths[i], boxes, d.y.vals[i], classes, theta, r, 
+            converted.w, converted.h, 4096, 2048, flip, dx, dy, 1./sx, 1./sy);
+
+        free_image(cropped);
+        free_image(converted);
         free_image(orig);
     }
     free(random_paths);
@@ -1369,6 +1411,83 @@ void fill_merge_mode_truth(char *path, int num_boxes, float *truth, int classes,
         truth[i*5+4] = id;
     }
     free(boxes);
+}
+
+void fill_convert_mode_truth(char *path, int num_boxes, float *truth, int classes, float theta, float r, int srcw, int srch, int panw, int panh, int flip, float dx, float dy, float sx, float sy)
+{
+    char labelpath[4096];
+    find_replace(path, "images", "labels", labelpath);
+    find_replace(labelpath, "JPEGImages", "labels", labelpath);
+
+    find_replace(labelpath, "raw", "labels", labelpath);
+    find_replace(labelpath, ".jpg", ".txt", labelpath);
+    find_replace(labelpath, ".png", ".txt", labelpath);
+    find_replace(labelpath, ".JPG", ".txt", labelpath);
+    find_replace(labelpath, ".JPEG", ".txt", labelpath);
+    int count = 0;
+    box_label *boxes = read_boxes(labelpath, &count);
+    randomize_boxes(boxes, count);
+    convert_boxes(boxes, count, theta, r, srcw, srch, panw, panh);
+    correct_boxes(boxes, count, dx, dy, sx, sy, flip);
+    if(count > num_boxes) count = num_boxes;
+    float x,y,w,h;
+    int id;
+    int i;
+
+    for (i = 0; i < count; ++i) {
+        x =  boxes[i].x;
+        y =  boxes[i].y;
+        w =  boxes[i].w;
+        h =  boxes[i].h;
+        id = boxes[i].id;
+
+        if ((w < .005 || h < .005)) continue;
+
+        truth[i*5+0] = x;
+        truth[i*5+1] = y;
+        truth[i*5+2] = w;
+        truth[i*5+3] = h;
+        truth[i*5+4] = id;
+    }
+    free(boxes);
+}
+
+void convert_boxes(box_label *boxes, int count, float theta, float r, int srcw, int srch, int panw, int panh)
+{
+    if (count < 0) return;
+
+    lrtb_box bx;
+    bx.left  = 0;
+    bx.right = srcw - 1;
+    bx.top = 0;
+    bx.bottom = srch - 1;
+
+    point *xpts = (point *)malloc(sizeof(point) * __TOTL);
+    generate_points(xpts, bx, __STEP);
+    lrtb_box nbx = box_transform(xpts,__TOTL,r,theta,srcw,srch,panw,panh);
+    free(xpts);
+
+    for (int i=0;i<count;i++)
+    {
+        lrtb_box b;
+        b.left   = boxes[i].left    * (srcw-1);
+        b.right  = boxes[i].right   * (srcw-1);
+        b.top    = boxes[i].top     * (srch-1);
+        b.bottom = boxes[i].bottom  * (srch-1);
+        point *pts = (point *)malloc(sizeof(point) * 60);
+        generate_points(pts, b, 15);
+        b = box_transform(pts,60,r,theta,srcw,srch,panw,panh);
+        free(pts);
+        b.left   -= bx.left;
+        b.right  -= bx.left;
+        b.top    -= bx.top;
+        b.bottom -= bx.top;
+
+        boxes[i].left   = 1.0f * b.left   / (srcw-1);
+        boxes[i].right  = 1.0f * b.right  / (srcw-1);
+        boxes[i].top    = 1.0f * b.top    / (srch-1);
+        boxes[i].bottom = 1.0f * b.bottom / (srch-1);
+    }
 }
 
 box_label * correct_crop_mode_boxes(box_label *boxes, int *count, float cl, float ct, float cw, float ch, int flip)
