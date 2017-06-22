@@ -1466,6 +1466,8 @@ void convert_boxes(box_label *boxes, int count, float theta, float r, int srcw, 
     generate_points(xpts, bx, __STEP);
     lrtb_box nbx = box_transform(xpts,__TOTL,r,theta,srcw,srch,panw,panh);
     free(xpts);
+    int ww = nbx.right - nbx.left;
+    int hh = nbx.bottom - nbx.top;
 
     for (int i=0;i<count;i++)
     {
@@ -1474,19 +1476,19 @@ void convert_boxes(box_label *boxes, int count, float theta, float r, int srcw, 
         b.right  = boxes[i].right   * (srcw-1);
         b.top    = boxes[i].top     * (srch-1);
         b.bottom = boxes[i].bottom  * (srch-1);
-        point *pts = (point *)malloc(sizeof(point) * 60);
-        generate_points(pts, b, 15);
-        b = box_transform(pts,60,r,theta,srcw,srch,panw,panh);
+        point *pts = (point *)malloc(sizeof(point) * __TOTL);
+        generate_points(pts, b, __STEP);
+        b = box_transform(pts,__TOTL,r,theta,srcw,srch,panw,panh);
         free(pts);
         b.left   -= bx.left;
         b.right  -= bx.left;
         b.top    -= bx.top;
         b.bottom -= bx.top;
 
-        boxes[i].left   = 1.0f * b.left   / (srcw-1);
-        boxes[i].right  = 1.0f * b.right  / (srcw-1);
-        boxes[i].top    = 1.0f * b.top    / (srch-1);
-        boxes[i].bottom = 1.0f * b.bottom / (srch-1);
+        boxes[i].left   = 1.0f * b.left   / (ww-1);
+        boxes[i].right  = 1.0f * b.right  / (ww-1);
+        boxes[i].top    = 1.0f * b.top    / (hh-1);
+        boxes[i].bottom = 1.0f * b.bottom / (hh-1);
     }
 }
 
