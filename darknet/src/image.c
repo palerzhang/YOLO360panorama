@@ -1922,9 +1922,69 @@ void generate_points(point *pts, lrtb_box b, int step)
     }
 }
 
+void generate_points_f(point *pts, lrtb_boxf b, int step)
+{
+    int k = 0;
+    float ws = 1.0f * (b.right - b.left) / step;
+    float hs = 1.0f * (b.bottom - b.top) / step;
+    for (int i=0; i<step; i++)
+    {
+        pts[k].x = b.left + i * ws;
+        pts[k].y = b.top;
+        pts[k].z = 0;
+
+        pts[step + k].x = b.right;
+        pts[step + k].y = b.top + i * hs;
+        pts[step + k].z = 0;
+
+        pts[step * 2 + k].x = b.right - i * ws;
+        pts[step * 2 + k].y = b.bottom;
+        pts[step * 2 + k].z = 0;
+
+        pts[step * 3 + k].x = b.left;
+        pts[step * 3 + k].y = b.bottom - i * hs;
+        pts[step * 3 + k].z = 0;
+
+        k++;
+    }
+}
+
+
 lrtb_box box_transform(point * pts, int size, float r, float theta, int srcw, int srch, int panw, int panh)
 {
     lrtb_box ret;
+    float minx =  99999;
+    float maxx = -99999;
+    float miny =  99999;
+    float maxy = -99999;
+
+    for (int i=0;i<size;i++)
+    {
+        polar po = map_from_point(pts[i], r, theta, srcw, srch);
+        if (po.phi < miny)
+            miny = po.phi;
+
+        if (po.phi > maxy)
+            maxy = po.phi;
+
+        if (po.theta < minx)
+            minx = po.theta;
+
+        if (po.theta > maxx)
+            maxx = po.theta;
+    }
+
+    ret.left   = minx / (2 * __PI) * (panw-1);
+    ret.right  = maxx / (2 * __PI) * (panw-1);
+    ret.top    = miny / (    __PI) * (panh-1);
+    ret.bottom = maxy / (    __PI) * (panh-1);
+
+    return ret;
+}
+
+lrtb_boxf box_transform_f(point * pts, int size, float r, float theta, int srcw, int srch, int panw, int panh)
+{
+    lrtb_boxf ret;
     float minx =  99999;
     float maxx = -99999;
     float miny =  99999;

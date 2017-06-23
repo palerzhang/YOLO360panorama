@@ -1471,24 +1471,24 @@ void convert_boxes(box_label *boxes, int count, float theta, float r, int srcw, 
 
     for (int i=0;i<count;i++)
     {
-        lrtb_box b;
+        lrtb_boxf b;
         b.left   = boxes[i].left    * (srcw-1);
         b.right  = boxes[i].right   * (srcw-1);
         b.top    = boxes[i].top     * (srch-1);
         b.bottom = boxes[i].bottom  * (srch-1);
         point *pts = (point *)malloc(sizeof(point) * __TOTL);
-        generate_points(pts, b, __STEP);
-        b = box_transform(pts,__TOTL,r,theta,srcw,srch,panw,panh);
+        generate_points_f(pts, b, __STEP);
+        b = box_transform_f(pts,__TOTL,r,theta,srcw,srch,panw,panh);
         free(pts);
-        b.left   -= bx.left;
-        b.right  -= bx.left;
-        b.top    -= bx.top;
-        b.bottom -= bx.top;
+        b.left   -= nbx.left;
+        b.right  -= nbx.left;
+        b.top    -= nbx.top;
+        b.bottom -= nbx.top;
 
-        boxes[i].left   = 1.0f * b.left   / (ww-1);
-        boxes[i].right  = 1.0f * b.right  / (ww-1);
-        boxes[i].top    = 1.0f * b.top    / (hh-1);
-        boxes[i].bottom = 1.0f * b.bottom / (hh-1);
+        boxes[i].left   = constrain(0, 1, b.left   / (ww-1));
+        boxes[i].right  = constrain(0, 1, b.right  / (ww-1));
+        boxes[i].top    = constrain(0, 1, b.top    / (hh-1));
+        boxes[i].bottom = constrain(0, 1, b.bottom / (hh-1));
     }
 }
 

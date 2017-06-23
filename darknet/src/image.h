@@ -127,6 +127,13 @@ typedef struct{
     int bottom;
 } lrtb_box;
 
+typedef struct{
+	float left;
+	float right;
+	float top;
+	float bottom;
+} lrtb_boxf;
+
 float minimum(float v1, float v2, float v3, float v4);
 
 float maximum(float v1, float v2, float v3, float v4);
@@ -145,7 +152,11 @@ point map_from_polar(polar p, plane P, float theta, int w, int h);
 
 void generate_points(point *pts, lrtb_box b, int step);
 
+void generate_points_f(point *pts, lrtb_boxf b, int step);
+
 lrtb_box box_transform(point * pts, int size, float r, float theta, int srcw, int srch, int panw, int panh);
+
+lrtb_boxf box_transform_f(point * pts, int size, float r, float theta, int srcw, int srch, int panw, int panh);
 
 image convert(image img, int w, float theta, float r);
 
