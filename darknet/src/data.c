@@ -1286,7 +1286,7 @@ data load_data_panorama(int n, char **paths, int m, int w, int h, int boxes, int
         // now use converted image to train
         //float theta = ator(rand() % 180);
         float r = predict_cam_dis(orig.w, orig.h);
-        float theta = atan(img.h / (r * 2.0));
+        float theta = atan(orig.h / (r * 2.0));
         theta = rand_uniform(theta, __PI - theta);
         image converted = convert(orig, 4096, theta, r);
 
