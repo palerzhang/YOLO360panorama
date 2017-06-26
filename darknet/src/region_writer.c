@@ -640,7 +640,7 @@ box4panorama * finetune_self(box4panorama * rg, int * size, float threshold)
 	return rg;
 }
 
-b4p_copy(box4panorama * dst, const box4panorama * src)
+void b4p_copy(box4panorama * dst, const box4panorama * src)
 {
     dst->c = src->c;
     dst->u = src->u;

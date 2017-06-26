@@ -1293,35 +1293,49 @@ data load_data_panorama(int n, char **paths, int m, int w, int h, int boxes, int
         int oh = converted.h;
         int ow = converted.w;
 
-        int dw = (ow*jitter);
-        int dh = (oh*jitter);
+        int swidth, sheight, pleft, ptop;
 
-        int pleft  = rand_uniform(-dw, dw);
-        int pright = rand_uniform(-dw, dw);
-        int ptop   = rand_uniform(-dh, dh);
-        //int pbot   = rand_uniform(-dh, dh);
-
-        int swidth =  ow - pleft - pright;
-        //int sheight = oh - ptop - pbot;
-        int sheight = swidth;
-
-        float sx = (float)swidth  / ow;
-        float sy = (float)sheight / oh;
+        if (ow > oh)
+        {
+            swidth = rand_uniform(oh, ow);
+            sheight = swidth;
+            pleft =   rand_uniform(0, abs(ow - swidth));
+            ptop  = - rand_uniform(0, abs(oh - sheight));
+        }
+        else if (oh > ow)
+        {
+            swidth = rand_uniform(ow, oh);
+            sheight = swidth;
+            pleft = - rand_uniform(0, abs(ow - swidth));
+            ptop  =   rand_uniform(0, abs(oh - sheight));
+        }
+        else
+        {
+            int dw = ow * jitter;
+            int dx = rand_uniform(-dw, dw);
+            swidth = ow + dx;
+            sheight = swidth;
+            pleft = - rand_uniform(0, dx);
+            ptop  = - rand_uniform(0, dx);
+        }
 
         int flip = rand()%2;
         // cut the image
-        image cropped = crop_image(orig, pleft, ptop, swidth, sheight);
+        image cropped = crop_convert_image(converted, pleft, ptop, swidth, sheight);
 
-        float dx = ((float)pleft/ow)/sx;
-        float dy = ((float)ptop /oh)/sy;
         // resized
         image sized = resize_image(cropped, w, h);
         if(flip) flip_image(sized);
         random_distort_image(sized, hue, saturation, exposure);
         d.X.vals[i] = sized.data;
 
+        float cl = ((float)pleft) / ow;
+        float ct = ((float)ptop) / oh;
+        float cw = ow / ((float)swidth);
+        float ch = oh / ((float)sheight);
+
         fill_convert_mode_truth(random_paths[i], boxes, d.y.vals[i], classes, theta, r, 
-            converted.w, converted.h, 4096, 2048, flip, dx, dy, 1./sx, 1./sy);
+            converted.w, converted.h, 4096, 2048, flip, cl, ct, cw, ch);
 
         free_image(cropped);
         free_image(converted);
@@ -1415,7 +1429,7 @@ void fill_merge_mode_truth(char *path, int num_boxes, float *truth, int classes,
     free(boxes);
 }
 
-void fill_convert_mode_truth(char *path, int num_boxes, float *truth, int classes, float theta, float r, int srcw, int srch, int panw, int panh, int flip, float dx, float dy, float sx, float sy)
+void fill_convert_mode_truth(char *path, int num_boxes, float *truth, int classes, float theta, float r, int srcw, int srch, int panw, int panh, int flip, float cl, float ct, float cw, float ch)
 {
     char labelpath[4096];
     find_replace(path, "images", "labels", labelpath);
@@ -1430,7 +1444,7 @@ void fill_convert_mode_truth(char *path, int num_boxes, float *truth, int classe
     box_label *boxes = read_boxes(labelpath, &count);
     randomize_boxes(boxes, count);
     convert_boxes(boxes, count, theta, r, srcw, srch, panw, panh);
-    correct_boxes(boxes, count, dx, dy, sx, sy, flip);
+    correct_convert_mode_boxes(boxes, count, cl, ct, cw, ch, flip);
     if(count > num_boxes) count = num_boxes;
     float x,y,w,h;
     int id;
@@ -1732,4 +1746,41 @@ box_label * correct_merge_mode_boxes(box_label *boxes, int * count, float cutlin
     *count = size[1];
 
     return boxes;
+}
+
+void correct_convert_mode_boxes(box_label *boxes, int count, float cl, float ct, float cw, float ch, int flip)
+{
+    int i;
+    for(i = 0; i < count; ++i){
+        if(boxes[i].x == 0 && boxes[i].y == 0) {
+            boxes[i].x = 999999;
+            boxes[i].y = 999999;
+            boxes[i].w = 999999;
+            boxes[i].h = 999999;
+            continue;
+        }
+        boxes[i].left   = (boxes[i].left  - cl) * cw;
+        boxes[i].right  = (boxes[i].right - cl) * cw;
+        boxes[i].top    = (boxes[i].top   - ct) * ch;
+        boxes[i].bottom = (boxes[i].bottom- ct) * ch;
+
+        if(flip){
+            float swap = boxes[i].left;
+            boxes[i].left = 1. - boxes[i].right;
+            boxes[i].right = 1. - swap;
+        }
+
+        boxes[i].left =  constrain(0, 1, boxes[i].left);
+        boxes[i].right = constrain(0, 1, boxes[i].right);
+        boxes[i].top =   constrain(0, 1, boxes[i].top);
+        boxes[i].bottom =   constrain(0, 1, boxes[i].bottom);
+
+        boxes[i].x = (boxes[i].left+boxes[i].right)/2;
+        boxes[i].y = (boxes[i].top+boxes[i].bottom)/2;
+        boxes[i].w = (boxes[i].right - boxes[i].left);
+        boxes[i].h = (boxes[i].bottom - boxes[i].top);
+
+        boxes[i].w = constrain(0, 1, boxes[i].w);
+        boxes[i].h = constrain(0, 1, boxes[i].h);
+    }
 }

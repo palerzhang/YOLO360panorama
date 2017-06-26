@@ -2100,3 +2100,23 @@ image convert(image img, int w, float theta, float r)
 
     return out;
 }
+
+image crop_convert_image(image img, int x, int y, int w, int h)
+{
+    image out = make_image(w,h,img.c);
+
+    for (int i=0;i<w;i++)
+    {
+        for (int j=0;j<h;j++)
+        {
+            for (int k=0;k<img.c;k++)
+            {
+                if (i+x < img.w && i+x >= 0 && j+y < img.h && j+y >= 0)
+                    set_pixel(out,i,j,k,get_pixel(img,i+x,j+y,k));
+                else 
+                    set_pixel(out,i,j,k,0);
+            }
+        }
+    }
+    return out;
+}

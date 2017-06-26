@@ -160,5 +160,7 @@ lrtb_boxf box_transform_f(point * pts, int size, float r, float theta, int srcw,
 
 image convert(image img, int w, float theta, float r);
 
+image crop_convert_image(image img, int x, int y, int w, int h);
+
 #endif
 
