@@ -1293,35 +1293,52 @@ data load_data_panorama(int n, char **paths, int m, int w, int h, int boxes, int
         int oh = converted.h;
         int ow = converted.w;
 
-        int swidth, sheight, pleft, ptop;
+        int dw = (ow*jitter);
+        int dh = (oh*jitter);
 
-        if (ow > oh)
-        {
-            swidth = rand_uniform(oh, ow);
-            sheight = swidth;
-            pleft =   rand_uniform(0, abs(ow - swidth));
-            ptop  = - rand_uniform(0, abs(oh - sheight));
-        }
-        else if (oh > ow)
-        {
-            swidth = rand_uniform(ow, oh);
-            sheight = swidth;
-            pleft = - rand_uniform(0, abs(ow - swidth));
-            ptop  =   rand_uniform(0, abs(oh - sheight));
-        }
-        else
-        {
-            int dw = ow * jitter;
-            int dx = rand_uniform(-dw, dw);
-            swidth = ow + dx;
-            sheight = swidth;
-            pleft = - rand_uniform(0, dx);
-            ptop  = - rand_uniform(0, dx);
-        }
+        int pleft  = rand_uniform(-dw, dw);
+        int pright = rand_uniform(-dw, dw);
+        int ptop   = rand_uniform(-dh, dh);
+        int pbot   = rand_uniform(-dh, dh);
+
+        int swidth =  ow - pleft - pright;
+        int sheight = oh - ptop - pbot;
+
+        float sx = (float)swidth  / ow;
+        float sy = (float)sheight / oh;
+
+        // int swidth, sheight, pleft, ptop;
+
+        // if (ow > oh)
+        // {
+        //     swidth = rand_uniform(oh, ow);
+        //     sheight = swidth;
+        //     pleft =   rand_uniform(0, abs(ow - swidth));
+        //     ptop  = - rand_uniform(0, abs(oh - sheight));
+        // }
+        // else if (oh > ow)
+        // {
+        //     swidth = rand_uniform(ow, oh);
+        //     sheight = swidth;
+        //     pleft = - rand_uniform(0, abs(ow - swidth));
+        //     ptop  =   rand_uniform(0, abs(oh - sheight));
+        // }
+        // else
+        // {
+        //     int dw = ow * jitter;
+        //     int dx = rand_uniform(-dw, dw);
+        //     swidth = ow + dx;
+        //     sheight = swidth;
+        //     pleft = - rand_uniform(0, dx);
+        //     ptop  = - rand_uniform(0, dx);
+        // }
 
         int flip = rand()%2;
         // cut the image
         image cropped = crop_convert_image(converted, pleft, ptop, swidth, sheight);
+
+        float dx = ((float)pleft/ow)/sx;
+        float dy = ((float)ptop /oh)/sy;
 
         // resized
         image sized = resize_image(cropped, w, h);
@@ -1329,13 +1346,13 @@ data load_data_panorama(int n, char **paths, int m, int w, int h, int boxes, int
         random_distort_image(sized, hue, saturation, exposure);
         d.X.vals[i] = sized.data;
 
-        float cl = ((float)pleft) / ow;
-        float ct = ((float)ptop) / oh;
-        float cw = ow / ((float)swidth);
-        float ch = oh / ((float)sheight);
+        // float cl = ((float)pleft) / ow;
+        // float ct = ((float)ptop) / oh;
+        // float cw = ow / ((float)swidth);
+        // float ch = oh / ((float)sheight);
 
         fill_convert_mode_truth(random_paths[i], boxes, d.y.vals[i], classes, theta, r, 
-            converted.w, converted.h, 4096, 2048, flip, cl, ct, cw, ch);
+            converted.w, converted.h, 4096, 2048, flip, dx, dy, 1./sx, 1./sy);
 
         free_image(cropped);
         free_image(converted);
@@ -1429,7 +1446,7 @@ void fill_merge_mode_truth(char *path, int num_boxes, float *truth, int classes,
     free(boxes);
 }
 
-void fill_convert_mode_truth(char *path, int num_boxes, float *truth, int classes, float theta, float r, int srcw, int srch, int panw, int panh, int flip, float cl, float ct, float cw, float ch)
+void fill_convert_mode_truth(char *path, int num_boxes, float *truth, int classes, float theta, float r, int srcw, int srch, int panw, int panh, int flip, float dx, float dy, float sx, float sy)
 {
     char labelpath[4096];
     find_replace(path, "images", "labels", labelpath);
@@ -1444,7 +1461,8 @@ void fill_convert_mode_truth(char *path, int num_boxes, float *truth, int classe
     box_label *boxes = read_boxes(labelpath, &count);
     randomize_boxes(boxes, count);
     convert_boxes(boxes, count, theta, r, srcw, srch, panw, panh);
-    correct_convert_mode_boxes(boxes, count, cl, ct, cw, ch, flip);
+    //correct_convert_mode_boxes(boxes, count, cl, ct, cw, ch, flip);
+    correct_boxes(boxes, count, dx, dy, sx, sy, flip);
     if(count > num_boxes) count = num_boxes;
     float x,y,w,h;
     int id;
